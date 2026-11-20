@@ -10,11 +10,12 @@ description: Пример колоды для сайта «Карточки». �
 
 hello | привет
 goodbye | до свидания
+good morning | доброе утро; добрый день
+audio: audio/good-morning.mp3
 thank you | спасибо
 please | пожалуйста
 yes | да
 no | нет
-good morning | доброе утро; добрый день
 good evening | добрый вечер
 how are you? | как дела?
 my name is Ana | меня зовут Ана

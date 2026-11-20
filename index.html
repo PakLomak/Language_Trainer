@@ -62,7 +62,8 @@ label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35re
 .chips{display:flex;flex-wrap:wrap;gap:6px}
 .chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:.28rem .75rem;font-size:.85rem;cursor:pointer;user-select:none}
 .chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
-.sess-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sess-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+select.sel.sel-inline{width:auto;min-width:64px;padding:.28rem .45rem;font-size:.85rem;border-radius:8px}
 .bar{height:6px;background:var(--chip);border-radius:99px;overflow:hidden;margin-bottom:18px}
 .bar i{display:block;height:100%;background:var(--accent);transition:width .2s}
 .stage{position:relative}
@@ -70,7 +71,7 @@ label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35re
 .tapholder.small{font-size:1.05rem;cursor:default;align-items:stretch;text-align:left}
 .side-label{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
 .flip-hint{color:var(--muted);font-size:.8rem;margin-top:14px}
-.card-img{max-width:100%;height:auto;max-height:260px;border-radius:10px;margin:.5rem 0}
+.card-img{max-width:100%;height:auto;max-height:170px;border-radius:10px;margin:.5rem 0}
 .divider{height:1px;background:var(--line);margin:16px 0;width:100%}
 .grade{display:flex;gap:10px;margin-top:16px}
 .grade .btn{flex:1;justify-content:center;padding:.85rem;font-size:1.02rem;border-radius:12px}
@@ -182,13 +183,13 @@ ru:{
   cardsCount:'карточек', tasksCount:'заданий', statKnew:'знал', statMissed:'не знал',
   addUrlTitle:'Добавить колоду по ссылке', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
   addBtn:'Добавить', noUrl:'Введите ссылку на файл колоды',
-  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы',
-  uploadHint:'Выберите сразу .md/.txt и лежащие рядом картинки и аудио — пути в карточках свяжутся автоматически. Текст колоды сохранится в браузере (localStorage); медиа привязываются на текущую сессию.',
+  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы', folderBtn:'Выбрать папку',
+  uploadHint:'Выберите сразу .md/.txt и лежащие рядом картинки и аудио — пути в карточках свяжутся автоматически (удобно и кнопкой «Выбрать папку»: сайт сам найдёт колоды и медиа). Текст колоды сохранится в браузере (localStorage); медиа привязываются на текущую сессию.',
   fetchFail:'Не удалось загрузить', parseEmpty:'В файле не найдено ни одной карточки',
   added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
-  settingsTitle:'Настройки', autoplay:'Автовоспроизведение аудио при показе карточки',
+  settingsTitle:'Настройки',
   fontSize:'Размер шрифта',
-  variants:'Варианты:',
+  variants:'Варианты',
   exportProgress:'Экспортировать прогресс', importProgress:'Импортировать прогресс',
   resetProgress:'Сбросить весь прогресс', confirmReset:'Точно сбросить весь прогресс?',
   progressCleared:'Прогресс сброшен', imported:'Прогресс импортирован', invalidFile:'Некорректный файл прогресса',
@@ -204,7 +205,7 @@ ru:{
   exact:'Совпадает с эталоном', alsoCorrect:'Тоже верно:', yourAnswer:'Ваш ответ:',
   done:'Сессия завершена', doneHints:'Подсказок', repeatMistakes:'Повторить ошибки', toHome:'На главную',
   noCards:'Под эти настройки не нашлось ни одной карточки', noMistakes:'Ошибок нет — тренируйтесь дальше!',
-  keysHint:'Пробел / Enter — переворот или показать ответ · 1 — знал · 2 — не знал · H — подсказка · F — сменить направление · Esc — выход',
+  keysHint:'Пробел / Enter — переворот или показать ответ · 1 — знал · 2 — не знал · H — подсказка · P — повторить аудио · F — сменить направление · Esc — выход · клавиши работают на любой раскладке',
   warnings:'Замечания при разборе', copied:'Скопировано', copy:'Копировать',
   instrTitle:'Инструкция'
 },
@@ -219,13 +220,13 @@ en:{
   cardsCount:'cards', tasksCount:'tasks', statKnew:'knew', statMissed:'missed',
   addUrlTitle:'Add a deck by link', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
   addBtn:'Add', noUrl:'Enter a link to a deck file',
-  uploadTitle:'Upload files from your device', uploadBtn:'Choose files',
-  uploadHint:'Select .md/.txt files together with nearby images and audio — relative paths will be linked automatically. Deck text is saved in the browser (localStorage); media is bound for the current session.',
+  uploadTitle:'Upload files from your device', uploadBtn:'Choose files', folderBtn:'Choose folder',
+  uploadHint:'Select .md/.txt files together with nearby images and audio — relative paths will be linked automatically (the "Choose folder" button also works: decks and media are found for you). Deck text is saved in the browser (localStorage); media is bound for the current session.',
   fetchFail:'Failed to load', parseEmpty:'No cards found in the file',
   added:'Deck added', updated:'Updated', saved:'Saved',
-  settingsTitle:'Settings', autoplay:'Autoplay audio when a card is shown',
+  settingsTitle:'Settings',
   fontSize:'Font size',
-  variants:'Variants:',
+  variants:'Variants',
   exportProgress:'Export progress', importProgress:'Import progress',
   resetProgress:'Reset all progress', confirmReset:'Really reset all progress?',
   progressCleared:'Progress cleared', imported:'Progress imported', invalidFile:'Invalid progress file',
@@ -241,7 +242,7 @@ en:{
   exact:'Matches the reference', alsoCorrect:'Also correct:', yourAnswer:'Your answer:',
   done:'Session complete', doneHints:'Hints', repeatMistakes:'Repeat mistakes', toHome:'Home',
   noCards:'No cards match these settings', noMistakes:'No mistakes yet — keep going!',
-  keysHint:'Space / Enter — flip or reveal · 1 — knew · 2 — missed · H — hint · F — flip direction · Esc — exit',
+  keysHint:'Space / Enter — flip or reveal · 1 — knew · 2 — missed · H — hint · P — replay audio · F — flip direction · Esc — exit · keys work on any keyboard layout',
   warnings:'Parse warnings', copied:'Copied', copy:'Copy',
   instrTitle:'Guide'
 }};
@@ -298,7 +299,7 @@ function extractFrontmatter(text){
   }
   return { meta, body: lines.slice(end+1).join('\n') };
 }
-const FIELD_KEYS=['front','back','prompt','answer','alt','alt1','alt2','hint','audio','tags','id','direction','reverse'];
+const FIELD_KEYS=['front','back','prompt','answer','alt1','alt2','alt','hint','audio1','audio2','audio','tags','id','direction','reverse'];
 const FIELD_RE=new RegExp('^\\s*('+FIELD_KEYS.join('|')+')\\s*:\\s*(.*)$','i');
 function splitPipes(joined){
   for(let i=0;i<joined.length-2;i++){
@@ -368,6 +369,39 @@ function fieldValue(f){
   }
   return v.trim();
 }
+// поля, открывающие новую блочную запись; остальные ключи — необязательные
+const RECORD_KEYS={front:1, back:1, prompt:1, answer:1};
+// необязательное поле, дописанное под уже разобранной записью, прикрепляется к ней
+function applyModifier(c, key, v){
+  v=String(v||'').trim();
+  switch(key){
+    case 'audio': case 'audio1': case 'audio2':
+      if(v) (c[key]=c[key]||[]).push(v);
+      break;
+    case 'hint':
+      if(v) c.hint=v;
+      break;
+    case 'tags':
+      if(v) c.tags=c.tags.concat(parseTags([v]));
+      break;
+    case 'alt': case 'alt1': case 'alt2': {
+      const ps=v.split(';').map(s=>s.trim()).filter(Boolean);
+      const kk=key==='alt1'?'alt1':'alts';
+      if(ps.length){ (c[kk]=c[kk]||[]).push(...ps); finalizeCard(c); }
+      break;
+    }
+    case 'id':
+      if(v) c.id=v;
+      break;
+    case 'direction': {
+      const d=v.toLowerCase(); c.direction=['l2l1','l1l2','both'].includes(d)?d:'both';
+      break;
+    }
+    case 'reverse':
+      c.reverse=(v.toLowerCase()==='true'||v.toLowerCase()==='yes');
+      break;
+  }
+}
 function parseBlockLines(rawLines, section, warnings){
   const lines=rawLines.slice();
   while(lines.length && !lines[0].trim()) lines.shift();
@@ -377,11 +411,17 @@ function parseBlockLines(rawLines, section, warnings){
   // завершить накопленный блочный разбор: собрать карточку из полей
   const flush=()=>{
     if(!fields.length) return;
-    const obj={};
-    for(const f of fields){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
-    const g=k=>obj[k]&&obj[k][0];
+    const mods=fields.filter(f=>f.mod);
+    const norms=fields.filter(f=>!f.mod);
+    for(const f of mods) applyModifier(f.mod, f.key, fieldValue(f));
     const reset=()=>{ fields.length=0; hasField=false; };
+    if(!norms.length){ reset(); return; }
+    const obj={};
+    for(const f of norms){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
+    const g=k=>obj[k]&&obj[k][0];
     const c={ audio:(obj.audio||[]).filter(Boolean),
+              audio1:(obj.audio1||[]).filter(Boolean),
+              audio2:(obj.audio2||[]).filter(Boolean),
               alts:(obj.alt||[]).concat(obj.alt2||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
               alt1:(obj.alt1||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
               tags:parseTags(obj.tags) };
@@ -392,7 +432,7 @@ function parseBlockLines(rawLines, section, warnings){
     if(g('answer')!==undefined){
       c.type='task'; c.prompt=g('prompt')||''; c.answer=g('answer')||'';
       if(!c.answer.trim()){ warnings.push('Задание с пустым answer пропущено'); reset(); return; }
-      if(!c.prompt.trim() && !c.audio.length) warnings.push('Задание без prompt и без audio пропущено');
+      if(!c.prompt.trim() && !c.audio.length && !c.audio1.length && !c.audio2.length) warnings.push('Задание без prompt и без аудио пропущено');
     } else if(g('front')!==undefined){
       c.type='card'; c.front=g('front')||''; c.back=g('back')||'';
     } else {
@@ -402,7 +442,19 @@ function parseBlockLines(rawLines, section, warnings){
   };
   for(const line of lines){
     const m=line.match(FIELD_RE);
-    if(m){ hasField=true; fields.push({key:m[1].toLowerCase(), val:m[2], lines:[]}); continue; }
+    if(m){
+      const key=m[1].toLowerCase();
+      // необязательное поле без открытого блока продолжает последнюю запись
+      // (однострочник выше или только что закрытый блок); поле записи — новый блок
+      let modTarget=null;
+      if(!RECORD_KEYS[key]){
+        if(!fields.length && out.length) modTarget=out[out.length-1];
+        else if(fields.length && fields[0].mod) modTarget=fields[0].mod;
+      }
+      hasField=true;
+      fields.push({key, val:m[2], lines:[], mod:modTarget});
+      continue;
+    }
     const s=line.trim();
     if(!s) continue;
     // однострочная запись начинается с края строки и содержит « | » или Tab;
@@ -536,7 +588,7 @@ function nextRevealIndex(target, revealed){
 const LS={ settings:'lt.settings', decks:'lt.decks', progress:'lt.progress' };
 function loadJson(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function saveJson(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('localStorage: '+e.message); } }
-let settings=Object.assign({lang:'ru', autoplay:false, fontScale:1}, loadJson(LS.settings, {}));
+let settings=Object.assign({lang:'ru', fontScale:1}, loadJson(LS.settings, {}));
 let deckMetas=loadJson(LS.decks, []);
 let progress=loadJson(LS.progress, {});
 LANG = I18N[settings.lang] ? settings.lang : 'ru';
@@ -551,7 +603,9 @@ const deckCache={};
 function getDeck(meta){
   const ck=meta.id+'|'+fnv(meta.text||'');
   if(deckCache[ck]) return deckCache[ck];
-  const d=parseDeck(meta.text||'', /\.txt$/i.test(meta.url||'')||(meta.kind==='local'&&/\.txt$/i.test(meta.name||'')) ? 'x.txt' : 'x.md');
+  const fname=meta.url||meta.name||'x.md';
+  const isTxt=/\.txt$/i.test(fname);
+  const d=parseDeck(meta.text||'', isTxt?'x.txt':fname);
   d.metaId=meta.id;
   deckCache[ck]=d;
   return d;
@@ -648,10 +702,25 @@ function playAudioUrl(src, metaId){
     a.play().catch(()=>toast(t('audioFail')));
   }catch(e){ toast(t('audioFail')); }
 }
-function autoplayAudio(ex){
-  if(settings.autoplay && ex.card.audio && ex.card.audio.length){
-    playAudioUrl(ex.card.audio[0], ex.deck.metaId);
-  }
+// audio/audio1 — озвучка стороны 1 (front/prompt), audio2 — стороны 2 (back/answer)
+function audio1Of(c){ return ((c.audio1||[]).concat(c.audio||[])).filter(Boolean); }
+function audio2Of(c){ return (c.audio2||[]).filter(Boolean); }
+function audioListFor(ex, side){ return side==='2' ? audio2Of(ex.card) : audio1Of(ex.card); }
+// сторона, которая показывается первой (до переворота/раскрытия)
+function initialFaceSide(ex){
+  if(ex.card.type==='card') return ex.dir==='l2l1' ? '1' : '2';
+  return ex.dir==='l1l2' ? '1' : '2';
+}
+// сторона, которая на экране прямо сейчас
+function currentFaceSide(ex){
+  const first=initialFaceSide(ex);
+  const shown=(ex.card.type==='card') ? S.flipped : S.revealed;
+  return shown ? (first==='1'?'2':'1') : first;
+}
+// автоплей: ровно один раз на показ стороны (клик/клавиша уже были — браузер разрешает звук)
+function playFaceAudio(ex, side){
+  const list=audioListFor(ex, side);
+  if(list.length) playAudioUrl(list[0], ex.deck.metaId);
 }
 
 /* ============================ session ============================ */
@@ -692,6 +761,7 @@ function startSession(config){
   S={ exs:list, i:0, flipped:false, revealed:false, typed:'', showHint:false,
       revealedLetters:new Set(), hintPresses:0, hintsTotal:0,
       ok:0, bad:0, done:false, config };
+  playFaceAudio(cur(), initialFaceSide(cur()));
   if(location.hash==='#/session') rerender(); else location.hash='#/session';
 }
 function cur(){
@@ -713,6 +783,7 @@ function flipDir(){
   S.dirOverrides=S.dirOverrides||{};
   S.dirOverrides[S.i]=other;
   resetExerciseState();
+  playFaceAudio(cur(), initialFaceSide(cur()));
   rerender();
 }
 function grade(ok){
@@ -725,6 +796,7 @@ function grade(ok){
   S.i++;
   resetExerciseState();
   if(S.i>=S.exs.length){ S.done=true; }
+  else playFaceAudio(cur(), initialFaceSide(cur()));
   rerender();
 }
 function actReveal(){
@@ -734,6 +806,7 @@ function actReveal(){
   const inp=document.getElementById('typed');
   if(inp) S.typed=inp.value;
   S.revealed=true;
+  playFaceAudio(cur(), currentFaceSide(cur()));
   rerender();
 }
 function actHint(){
@@ -809,22 +882,19 @@ function homeView(){
   </div>
   <div class="panel">
     <h3>${esc(t('uploadTitle'))}</h3>
-    <div class="row"><button class="btn btn-primary" data-act="upload">${esc(t('uploadBtn'))}</button></div>
+    <div class="row">
+      <button class="btn btn-primary" data-act="upload">${esc(t('uploadBtn'))}</button>
+      <button class="btn" id="folder-btn" data-act="upload-folder">${esc(t('folderBtn'))}</button>
+    </div>
     <p class="muted" style="font-size:.85rem">${esc(t('uploadHint'))}</p>
     <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,image/*,audio/*">
+    <input type="file" id="folder-input" class="hidden" webkitdirectory multiple>
   </div>
   <div class="panel">
     <h3>${esc(t('settingsTitle'))}</h3>
-    <label class="row" style="gap:.5rem;cursor:pointer"><input type="checkbox" id="autoplay" ${settings.autoplay?'checked':''}> ${esc(t('autoplay'))}</label>
-    <div class="row" style="gap:.5rem;margin-top:12px;align-items:center">
+    <div class="row" style="gap:.5rem;align-items:center">
       <span style="white-space:nowrap">${esc(t('fontSize'))}</span>
-      <select class="sel" id="fontScale">
-        <option value="0.85" ${settings.fontScale===0.85?'selected':''}>85%</option>
-        <option value="1" ${settings.fontScale===1?'selected':''}>100%</option>
-        <option value="1.15" ${settings.fontScale===1.15?'selected':''}>115%</option>
-        <option value="1.3" ${settings.fontScale===1.3?'selected':''}>130%</option>
-        <option value="1.5" ${settings.fontScale===1.5?'selected':''}>150%</option>
-      </select>
+      ${fontScaleSel()}
     </div>
     <div class="row" style="margin-top:12px">
       <button class="btn" data-act="export">${esc(t('exportProgress'))}</button>
@@ -873,10 +943,14 @@ function rich(text, ex){
   s=s.replace(/\n/g,'<br>');
   return s;
 }
-function audioRowHtml(ex){
-  const list=ex.card.audio||[];
+function audioRowHtml(ex, side){
+  const list=audioListFor(ex, side||'1');
   if(!list.length) return '';
-  return `<div class="audio-row">${list.map((u,i)=>`<button class="btn btn-sm" data-act="play" data-arg="${i}">🔊 ${esc(t('audio'))}${list.length>1?' '+(i+1):''}</button>`).join('')}</div>`;
+  return `<div class="audio-row">${list.map((u,i)=>`<button class="btn btn-sm" data-act="play" data-arg="${side||'1'}:${i}" title="${esc(u)}">🔊 ${esc(t('audio'))}${list.length>1?' '+(i+1):''}</button>`).join('')}</div>`;
+}
+function fontScaleSel(){
+  const opts=[[0.85,'85%'],[1,'100%'],[1.15,'115%'],[1.3,'130%'],[1.5,'150%']];
+  return `<select class="sel sel-inline" id="fontScale" title="${esc(t('fontSize'))}" aria-label="${esc(t('fontSize'))}">${opts.map(([v,l])=>`<option value="${v}" ${settings.fontScale===v?'selected':''}>${l}</option>`).join('')}</select>`;
 }
 function gradeRowHtml(){
   return `<div class="grade">
@@ -900,7 +974,7 @@ function cardStageHtml(ex, a, b){
       ${variants.length?`<div class="alts">${esc(t('variants'))} ${esc(variants.join('; '))}</div>`:''}
       ${!flipped?`<div class="flip-hint">${esc(t('tapToFlip'))}</div>`:''}
     </div>
-    ${audioRowHtml(ex)}
+    ${audioRowHtml(ex, currentFaceSide(ex))}
     ${hintBtn}${hintLine}
     ${flipped?gradeRowHtml():''}
   </div>`;
@@ -927,7 +1001,7 @@ function taskStageHtml(ex, a, b){
     ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
   return `<div class="stage">
     <div class="tapholder small"><div class="side-label">${esc(t('prompt'))}</div><div>${rich(a, ex)}</div></div>
-    ${audioRowHtml(ex)}
+    ${audioRowHtml(ex, initialFaceSide(ex))}
     ${!revealed?`
       <div style="margin-top:14px"><input type="text" id="typed" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(t('typeHere'))}" value="${esc(S.typed||'')}"></div>
       <div class="row" style="margin-top:10px">
@@ -938,6 +1012,7 @@ function taskStageHtml(ex, a, b){
       ${maskLine}${hintText}
     `:`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="flip-dir">⇄ ${esc(t('flipDir'))}</button></div>`}
     ${after}
+    ${revealed?audioRowHtml(ex, currentFaceSide(ex)):''}
   </div>`;
 }
 function sessionView(){
@@ -952,6 +1027,7 @@ function sessionView(){
   <div class="sess-top">
     <button class="btn btn-sm" data-act="exit">${esc(t('exit'))}</button>
     <span class="muted" style="flex:1;text-align:center;word-break:break-word">${esc(ex.deck.title)}</span>
+    ${fontScaleSel()}
     <span class="muted" style="white-space:nowrap">${S.i+1} / ${total}</span>
   </div>
   <div class="bar"><i style="width:${pct}%"></i></div>
@@ -1002,24 +1078,29 @@ function instrSections(){
       <tr><td>alt2</td><td>обе</td><td>варианты стороны 2 (принимаются при вводе стороны 2)</td></tr>
       <tr><td>alt</td><td>задание</td><td>старое имя для alt2 — сохранить совместимость</td></tr>
       <tr><td>hint</td><td>обе</td><td>текст подсказки (кнопка «Подсказка»)</td></tr>
-      <tr><td>audio</td><td>обе</td><td>путь или ссылка на mp3/ogg/m4a/wav; можно несколько полей — плейлист</td></tr>
+      <tr><td>audio / audio1</td><td>обе</td><td>озвучка стороны 1 (фронт/prompt); путь или ссылка на mp3/ogg/m4a/wav; несколько полей — плейлист</td></tr>
+      <tr><td>audio2</td><td>обе</td><td>озвучка стороны 2 (оборот/answer)</td></tr>
       <tr><td>tags</td><td>обе</td><td>теги через запятую — фильтр при старте сессии</td></tr>
       <tr><td>id</td><td>обе</td><td>стабильный идентификатор: прогресс не собьётся при правке текста карточки</td></tr>
       <tr><td>reverse</td><td>карточка</td><td>true — тренировать в обе стороны (по умолчанию из шапки)</td></tr>
       <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление</td></tr>
     </table></div>
     <h3>Правила разбора</h3>
-    <p>• Однострочная запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Блочная запись начинается строкой с полем (prompt:, front:…) и продолжается до пустой строки, «---», заголовка или следующей однострочной записи.<br>• В однострочных записях «;» разделяет варианты (первое значение — основное); в блочных prompt/answer «;» — часть текста.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+    <p>• Однострочная запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Необязательные поля (audio, audio1, audio2, hint, tags, alt1, alt2, alt, id, direction, reverse), дописанные строкой-ключом под однострочной записью, прикрепляются к ней. Строка с front:, back:, prompt:, answer: начинает новую блочную запись.<br>• Блочная запись начинается строкой с полем (prompt:, front:…) и продолжается до пустой строки, «---», заголовка или следующей однострочной записи.<br>• В однострочных записях «;» разделяет варианты (первое значение — основное); в блочных prompt/answer «;» — часть текста.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
   {id:'txt', title:'Файлы .txt (таблица)', html:`
     <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
     ${codebox('# комментарий\nhello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tприветствия\n')}`},
   {id:'images', title:'Картинки', html:`
     <p>Картинка вставляется маркдаун-разметкой в любое поле. Три способа:</p>
     ${codebox(['![](img/dog.jpg)                    → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
-    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>`},
+    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>
+    <p>На карточке картинка показывается в фиксированном размере — не выше ~170 px по высоте, пропорции сохраняются, поэтому огромные фото не ломают вид. Подходят png, jpg, webp, gif (в том числе анимированный), svg и bmp; <b>webm</b> — это видео, а не картинка: если нужна анимация, берите gif.</p>`},
   {id:'audio', title:'Аудио', html:`
-    <p>Поле <b>audio:</b> добавляет кнопку воспроизведения к карточке или заданию. Путь — как у картинок: файл рядом с колодой или внешняя ссылка. Несколько полей audio — плейлист. Автовоспроизведение включается в настройках внизу главной страницы.</p>
-    ${codebox(['front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3',''].join('\n'))}
+    <p><b>audio</b> (полное имя <b>audio1</b>) — озвучка стороны 1: фронт карточки или prompt задания. <b>audio2</b> — озвучка стороны 2: оборот карточки или ответ. При показе стороны звук проигрывается <b>один раз</b> автоматически; повторить — клавиша <b>P</b> или кнопка 🔊 под карточкой. Несколько полей audio — плейлист, кнопки идут по порядку.</p>
+    <p>Аудио пишется блоком или строкой-модификатором под однострочной записью — прикрепится к ближайшей записи выше:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3','audio2: audio/dobryj-den.mp3',''].join('\n'))}
+    <p>Задание-аудирование: блок начинается с audio, prompt объясняет, что делать:</p>
+    ${codebox(['# Задания','audio: audio/dialogue01.mp3','prompt: Что прозвучало? Напишите по-английски.','answer: Hello! How are you?',''].join('\n'))}
     <h3>Как сделать свои аудио</h3>
     <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
@@ -1033,7 +1114,7 @@ function instrSections(){
     </table></div>
     <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы называйте латиницей без пробелов и храните в папке audio/ рядом с колодой.</p>`},
   {id:'loading', title:'Загрузка на сайт', html:`
-    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — md/txt плюс картинки и аудио рядом; текст колоды сохраняется в браузере (localStorage), медиа действует до перезагрузки страницы.</p>
+    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — md/txt плюс картинки и аудио рядом; кнопка «Выбрать папку» берёт сразу целую папку: сайт сам найдёт в ней колоды и свяжет медиа по относительным путям. Текст колоды сохраняется в браузере (localStorage), медиа действует до перезагрузки страницы.</p>
     <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>`},
   {id:'progress', title:'Прогресс', html:`
     <p>По каждой карточке сайт помнит счётчики «знал / не знал», дату последнего показа и число подсказок. На плитке колоды видна сводка. В начале сессии можно выбрать «Повторить только ошибки» — тогда пойдут лишь карточки с ошибками. Кнопка сброса удаляет весь прогресс (осторожно: восстановить нельзя, заранее сделайте экспорт).</p>`},
@@ -1044,15 +1125,17 @@ function instrSections(){
       <tr><td>1</td><td>Знал</td></tr>
       <tr><td>2</td><td>Не знал</td></tr>
       <tr><td>H</td><td>Подсказка (в заданиях открывает случайные буквы)</td></tr>
+      <tr><td>P</td><td>Повторить аудио текущей стороны</td></tr>
       <tr><td>F</td><td>Сменить направление задания (⇄)</td></tr>
       <tr><td>Esc</td><td>Выйти из сессии</td></tr>
     </table></div>
-    <p>На телефоне карточка переворачивается тапом по всей её площади.</p>`},
+    <p>Клавиши привязаны к физическим кнопкам клавиатуры и работают на любой раскладке: на русской раскладке те же клавиши делают то же самое. На телефоне карточка переворачивается тапом по всей её площади.</p>`},
   {id:'faq', title:'Вопросы и ответы', html:`
     <p><b>Почему у локальной колоды пропали картинки после перезагрузки?</b> Медиа с устройства живут одну сессию; текст сохраняется. Для постоянных картинок положите колоду на GitHub.</p>
     <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
     <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
     <p><b>Задание спрашивает не в ту сторону.</b> Нажмите ⇄ в сессии или задайте direction в файле.</p>
+    <p><b>Аудио не играет само.</b> Браузеры разрешают звук только после первого взаимодействия со страницей — кликните или нажмите любую клавишу, дальше автопроигрывание будет работать на каждой карточке. Повтор текущей стороны — клавиша P. Если звука нет совсем, проверьте путь к файлу и что он лежит рядом с колодой.</p>
     <p><b>Внутри текста есть «;» или « | ».</b> В однострочных записях «;» разделяет варианты, а « | » — поля: экранируйте черту (\\|), а текст с «;» пишите блочной формой — там «;» остаётся частью текста, варианты перечисляются в alt1/alt2.</p>`}
   ];
 }
@@ -1084,27 +1167,35 @@ function instrSectionsEn(){
       <tr><td>alt2</td><td>both</td><td>side-2 alternatives (accepted when typing side 2)</td></tr>
       <tr><td>alt</td><td>task</td><td>legacy alias for alt2</td></tr>
       <tr><td>hint</td><td>both</td><td>hint text</td></tr>
-      <tr><td>audio</td><td>both</td><td>audio path or URL; repeat for a playlist</td></tr>
+      <tr><td>audio / audio1</td><td>both</td><td>side-1 audio (front/prompt); path or URL (mp3/ogg/m4a/wav); repeat for a playlist</td></tr>
+      <tr><td>audio2</td><td>both</td><td>side-2 audio (back/answer)</td></tr>
       <tr><td>tags</td><td>both</td><td>comma-separated tags for session filters</td></tr>
       <tr><td>id</td><td>both</td><td>stable id: keeps progress when text is edited</td></tr>
       <tr><td>reverse</td><td>card</td><td>true — train both directions</td></tr>
       <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both</td></tr>
     </table></div>
     <h3>Parsing rules</h3>
-    <p>• A one-line record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• A block record starts at a field line (prompt:, front:…) and runs until a blank line, "---", a heading, or the next one-line record.<br>• In one-line records ";" splits alternatives (first value is the main one); in block prompt/answer ";" is plain text.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+    <p>• A one-line record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• Optional fields (audio, audio1, audio2, hint, tags, alt1, alt2, alt, id, direction, reverse) written as key lines right under a one-line record attach to it. A line with front:, back:, prompt:, answer: starts a new block record.<br>• A block record starts at a field line (prompt:, front:…) and runs until a blank line, "---", a heading, or the next one-line record.<br>• In one-line records ";" splits alternatives (first value is the main one); in block prompt/answer ";" is plain text.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
   {id:'txt', title:'Plain .txt (TSV)', html:`
     <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
     ${codebox('hello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tgreetings\n')}`},
   {id:'images', title:'Images', html:`
     <p>Images use markdown syntax in any field. Three ways:</p>
     ${codebox(['![](img/dog.jpg)                    → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
-    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>`},
+    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>
+    <p>On a card an image is shown at a fixed size — at most ~170 px tall, proportions kept, so huge photos do not break the layout. png, jpg, webp, gif (including animated), svg and bmp all work; <b>webm</b> is a video, not an image — use gif for animation.</p>`},
   {id:'audio', title:'Audio', html:`
-    <p>The <b>audio:</b> field adds a play button. Paths work like images. Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
+    <p><b>audio</b> (full name <b>audio1</b>) is the side-1 sound: the front of a card or the prompt of a task. <b>audio2</b> is side 2: the back of a card or the answer. When a side with audio is shown, the sound plays <b>once</b> automatically; press <b>P</b> or the 🔊 button to replay. Several audio fields make a playlist with buttons in order.</p>
+    <p>Audio is written in a block or as a modifier line under a one-line record — it attaches to the nearest record above:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3','audio2: audio/dobryj-den.mp3',''].join('\n'))}
+    <p>A listening task starts with audio; the prompt explains what to do:</p>
+    ${codebox(['# Задания','audio: audio/dialogue01.mp3','prompt: What did you hear? Type it in English.','answer: Hello! How are you?',''].join('\n'))}
+    <h3>Making your own audio</h3>
+    <p>Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
     <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Name files in Latin letters without spaces, keep them in an audio/ folder.</p>`},
   {id:'loading', title:'Loading decks', html:`
-    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — md/txt plus nearby media; deck text is stored in the browser (localStorage), media lasts for the session. Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
+    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — md/txt plus nearby media; the "Choose folder" button takes a whole folder at once: decks inside are found and media is linked by relative paths. Deck text is stored in the browser (localStorage), media lasts for the session. Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
   {id:'progress', title:'Progress', html:`
     <p>Per card the site keeps knew/missed counters, last-seen date and hint count. Session setup offers "Repeat mistakes only". The reset button wipes all progress — export first, it cannot be undone.</p>`},
   {id:'keys', title:'Keyboard', html:`
@@ -1113,15 +1204,17 @@ function instrSectionsEn(){
       <tr><td>Space / Enter</td><td>flip card or reveal answer</td></tr>
       <tr><td>1 / 2</td><td>knew / missed</td></tr>
       <tr><td>H</td><td>hint (reveals random letters)</td></tr>
+      <tr><td>P</td><td>replay audio of the current side</td></tr>
       <tr><td>F</td><td>flip task direction (⇄)</td></tr>
       <tr><td>Esc</td><td>exit session</td></tr>
     </table></div>
-    <p>On phones a card flips by tapping anywhere on it.</p>`},
+    <p>Keys are bound to physical keyboard buttons and work on any keyboard layout: with a Russian layout selected the same keys do the same thing. On phones a card flips by tapping anywhere on it.</p>`},
   {id:'faq', title:'FAQ', html:`
     <p><b>Images of a local deck disappeared after reload.</b> Device media lives for one session; the text is kept. Put decks on GitHub for permanent images.</p>
     <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
     <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
     <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>
+    <p><b>Audio does not play by itself.</b> Browsers allow sound only after the first interaction with the page — click or press any key once, then autoplay works on every card. Press P to replay the current side. If there is no sound at all, check the file path and that the file sits next to the deck.</p>
     <p><b>The text contains ";" or " | ".</b> In one-line records ";" splits alternatives and " | " separates fields: escape the bar (\\|); text with ";" should use the block form — there ";" stays plain text and alternatives go to alt1/alt2.</p>`}
   ];
 }
@@ -1156,6 +1249,7 @@ async function onFilesChosen(fileList){
   }
   let added=0;
   for(const f of files){
+    if(f.name.startsWith('.')) continue;
     if(/\.(md|markdown|txt)$/i.test(f.name)){
       const text=await f.text();
       const deck=parseDeck(text, f.name);
@@ -1173,10 +1267,16 @@ async function onFilesChosen(fileList){
 function registerAssets(deckId, files){
   const map={};
   for(const f of files){
+    if(f.name.startsWith('.')) continue;
     if(/\.(md|markdown|txt|json)$/i.test(f.name)) continue;
     if(!/^(image|audio)\//.test(f.type||'')) continue;
     const url=URL.createObjectURL(f);
-    if(f.webkitRelativePath) map[f.webkitRelativePath.replace(/^\.\//,'')]=url;
+    if(f.webkitRelativePath){
+      const rp=f.webkitRelativePath.replace(/^\.\//,'');
+      map[rp]=url;
+      const noRoot=rp.indexOf('/')>=0 ? rp.slice(rp.indexOf('/')+1) : '';
+      if(noRoot) map[noRoot]=url;
+    }
     map[f.name]=url;
   }
   if(Object.keys(map).length) localAssets[deckId]=map;
@@ -1217,6 +1317,7 @@ const act={
     addUrl(url);
   },
   'upload':()=>{ document.getElementById('file-input').click(); },
+  'upload-folder':()=>{ const el=document.getElementById('folder-input'); if(el) el.click(); },
   'reupload':arg=>{ pendingReupload=arg; document.getElementById('file-input').click(); },
   'refresh':arg=>{ fetchDeckText(arg, false); },
   'delete':arg=>{
@@ -1242,17 +1343,17 @@ const act={
     if(!confirm(t('confirmReset'))) return;
     progress={}; saveProgress(); toast(t('progressCleared')); rerender();
   },
-  'flip-card':()=>{ if(!S||S.done)return; const ex=cur(); if(ex.card.type!=='card')return; S.flipped=!S.flipped; if(S.flipped) autoplayAudio(ex); rerender(); },
+  'flip-card':()=>{ if(!S||S.done)return; const ex=cur(); if(ex.card.type!=='card')return; S.flipped=!S.flipped; playFaceAudio(ex, currentFaceSide(ex)); rerender(); },
   'reveal':()=>actReveal(),
   'hint':()=>actHint(),
   'flip-dir':()=>{ if(S&&!S.done) flipDir(); },
   'grade':arg=>{ if(!S||S.done)return; const ex=cur(); const can=ex.card.type==='card'?S.flipped:S.revealed; if(!can)return; grade(arg==='ok'); },
-  'play':(arg,el)=>{
-    const btn=el.closest('.stage'); // find current exercise via S
+  'play':arg=>{
     if(!S||S.done)return;
     const ex=cur();
-    const list=ex.card.audio||[];
-    const i=parseInt(arg,10)||0;
+    const [side, idx]=String(arg).split(':');
+    const list=audioListFor(ex, side==='2'?'2':'1');
+    const i=parseInt(idx,10)||0;
     if(list[i]) playAudioUrl(list[i], ex.deck.metaId);
   },
   'exit':()=>{ S=null; pendingSetup=null; if(location.hash==='#/session'||location.hash==='#/') rerender(); else location.hash='#/'; rerender(); },
@@ -1320,12 +1421,14 @@ function bindDynamic(){
     const L=inp.value.length;
     try{ inp.setSelectionRange(L,L); }catch(e){}
   }
-  const auto=document.getElementById('autoplay');
-  if(auto) auto.addEventListener('change',()=>{ settings.autoplay=auto.checked; saveSettings(); });
   const fs=document.getElementById('fontScale');
   if(fs) fs.addEventListener('change',()=>{ settings.fontScale=parseFloat(fs.value)||1; saveSettings(); applyFontScale(); });
   const fi=document.getElementById('file-input');
   if(fi) fi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const fo=document.getElementById('folder-input');
+  if(fo) fo.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const fb=document.getElementById('folder-btn');
+  if(fb && !('webkitdirectory' in document.createElement('input'))) fb.classList.add('hidden');
   const ii=document.getElementById('import-input');
   if(ii) ii.addEventListener('change',async e=>{
     const f=e.target.files[0]; e.target.value='';
@@ -1372,6 +1475,7 @@ document.addEventListener('keydown', e=>{
     case 'Digit1': case 'Numpad1': act['grade']('ok'); break;
     case 'Digit2': case 'Numpad2': act['grade']('bad'); break;
     case 'KeyH': actHint(); break;
+    case 'KeyP': playFaceAudio(cur(), currentFaceSide(cur())); break;
     case 'KeyF': flipDir(); break;
   }
 });
