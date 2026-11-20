@@ -176,8 +176,16 @@ ru:{
   cardsCount:'карточек', tasksCount:'заданий', statKnew:'знал', statMissed:'не знал',
   addUrlTitle:'Добавить колоду по ссылке', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
   addBtn:'Добавить', noUrl:'Введите ссылку на файл колоды',
-  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы', folderBtn:'Выбрать папку',
-  uploadHint:'Выберите сразу .md/.txt и лежащие рядом картинки и аудио — пути в карточках свяжутся автоматически (удобно и кнопкой «Выбрать папку»: сайт сам найдёт колоды и медиа). Текст колоды сохранится в браузере (localStorage); медиа привязываются на текущую сессию.',
+  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы', folderBtn:'Выбрать папку', zipBtn:'Загрузить архив (.zip)',
+  uploadHint:'Кнопка «Выбрать файлы»: .md/.txt вместе с медиа рядом, или сразу .zip-архив. «Выбрать папку»: целая папка — колоды и медиа найдутся сами. Все аудио и картинки предзагружаются в общую медиа-библиотеку (включая содержимое архива) и работают для всех колод — в том числе подключённых по ссылке — до перезагрузки страницы. Текст колод сохраняется в браузере (localStorage).',
+  mediaTitle:'Медиа-библиотека (аудио и картинки)',
+  mediaNone:'Медиа не подключено. Выберите папку или ZIP-архив — все аудио и картинки предзагружаются сразу и связываются с путями audio: и ![]() по имени файла.',
+  mediaLoaded:'Медиа предзагружено', mediaAudio:'аудио', mediaImages:'картинки',
+  mediaUntilReload:'Хранится до перезагрузки страницы; работает для всех колод, включая колоды по ссылке.',
+  mediaClear:'Отключить медиа', mediaCleared:'Медиа-библиотека отключена',
+  mediaMissing:'картинка недоступна',
+  zipImporting:'Читаю архив…', zipImported:'Архив подключён', zipFail:'Архив не удалось прочитать', zipEmpty:'В архиве нет медиа и колод',
+  zipUnsupported:'Браузер не умеет распаковывать deflate-архивы — нужен свежий Chrome, Edge или Firefox; либо выберите папку кнопкой «Выбрать папку»',
   fetchFail:'Не удалось загрузить', parseEmpty:'В файле не найдено ни одной карточки',
   added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
   settingsTitle:'Настройки',
@@ -213,8 +221,16 @@ en:{
   cardsCount:'cards', tasksCount:'tasks', statKnew:'knew', statMissed:'missed',
   addUrlTitle:'Add a deck by link', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
   addBtn:'Add', noUrl:'Enter a link to a deck file',
-  uploadTitle:'Upload files from your device', uploadBtn:'Choose files', folderBtn:'Choose folder',
-  uploadHint:'Select .md/.txt files together with nearby images and audio — relative paths will be linked automatically (the "Choose folder" button also works: decks and media are found for you). Deck text is saved in the browser (localStorage); media is bound for the current session.',
+  uploadTitle:'Upload files from your device', uploadBtn:'Choose files', folderBtn:'Choose folder', zipBtn:'Load archive (.zip)',
+  uploadHint:'"Choose files": .md/.txt together with nearby media, or a .zip archive right away. "Choose folder": a whole folder — decks and media are found for you. All audio and images are preloaded into a shared media library (archives included) and work for every deck — link-based decks too — until the page is reloaded. Deck text is saved in the browser (localStorage).',
+  mediaTitle:'Media library (audio and images)',
+  mediaNone:'No media connected yet. Pick a folder or a ZIP archive — all audio and images are preloaded at once and matched to audio: paths and ![]() images by file name.',
+  mediaLoaded:'Media preloaded', mediaAudio:'audio', mediaImages:'image(s)',
+  mediaUntilReload:'Kept until the page is reloaded; serves every deck, link-based decks included.',
+  mediaClear:'Disconnect media', mediaCleared:'Media library disconnected',
+  mediaMissing:'image unavailable',
+  zipImporting:'Reading archive…', zipImported:'Archive connected', zipFail:'Failed to read the archive', zipEmpty:'The archive has no media or decks',
+  zipUnsupported:'This browser cannot unpack deflate archives — a recent Chrome, Edge or Firefox is needed; otherwise pick a folder with the "Choose folder" button',
   fetchFail:'Failed to load', parseEmpty:'No cards found in the file',
   added:'Deck added', updated:'Updated', saved:'Saved',
   settingsTitle:'Settings',
@@ -578,7 +594,102 @@ function getDeck(meta){
   return d;
 }
 function deckIdForLocal(title){ return 'local:'+String(title||'').toLowerCase(); }
-const localAssets={}; // deckId -> {relPath: blobUrl}
+const localAssets={}; // deckId -> {relPath: blobUrl} — медиа, выбранное вместе с конкретной колодой
+
+/* ============================ медиа-библиотека ============================ */
+// Единый индекс всех выбранных аудио и картинок (мультивыбор, папка, ZIP).
+// Предзагрузка: при выборе источник целиком индексируется в blob-URL,
+// дальше воспроизведение и показ идут из памяти — без сетевых запросов.
+const mediaLib={ files:{}, audio:0, image:0 };
+const AUDIO_EXT=/\.(mp3|ogg|oga|m4a|aac|wav|flac|opus|weba)$/i;
+const IMAGE_EXT=/\.(png|jpe?g|gif|webp|svg|bmp|avif|ico)$/i;
+function isMediaFile(name, type){
+  if(type && /^(image|audio)\//i.test(type)) return true;
+  return AUDIO_EXT.test(name)||IMAGE_EXT.test(name);
+}
+function mimeFor(name){
+  const m=String(name).toLowerCase();
+  if(/\.mp3$/.test(m)) return 'audio/mpeg';
+  if(/\.(ogg|oga|opus)$/.test(m)) return 'audio/ogg';
+  if(/\.m4a$/.test(m)) return 'audio/mp4';
+  if(/\.aac$/.test(m)) return 'audio/aac';
+  if(/\.wav$/.test(m)) return 'audio/wav';
+  if(/\.flac$/.test(m)) return 'audio/flac';
+  if(/\.weba$/.test(m)) return 'audio/webm';
+  if(/\.png$/.test(m)) return 'image/png';
+  if(/\.jpe?g$/.test(m)) return 'image/jpeg';
+  if(/\.gif$/.test(m)) return 'image/gif';
+  if(/\.webp$/.test(m)) return 'image/webp';
+  if(/\.svg$/.test(m)) return 'image/svg+xml';
+  if(/\.bmp$/.test(m)) return 'image/bmp';
+  if(/\.avif$/.test(m)) return 'image/avif';
+  if(/\.ico$/.test(m)) return 'image/x-icon';
+  return '';
+}
+// один файл кладётся в индекс под несколькими ключами: путь целиком,
+// путь без корневой папки, имя файла и то же имя в нижнем регистре
+function putMediaKey(map, key, url){
+  if(!key) return;
+  const k=String(key).replace(/^\.\//,'').replace(/\\/g,'/');
+  if(!map[k]) map[k]=url;
+  if(k.indexOf('/')>=0){
+    const tail=k.slice(k.indexOf('/')+1);
+    if(tail && !map[tail]) map[tail]=url;
+  }
+  const base=k.split('/').pop()||k;
+  if(!map[base]) map[base]=url;
+  const low=base.toLowerCase();
+  if(!map[low]) map[low]=url;
+}
+function mediaCount(files){
+  let a=0, i=0;
+  for(const f of files){
+    if(/^audio\//i.test(f.type||'')||(!f.type && AUDIO_EXT.test(f.name))) a++; else i++;
+  }
+  return [a,i];
+}
+// русские формы числительных: plural(5,'колода','колоды','колод') → «колод»
+function plural(n, one, few, many){
+  const m10=n%10, m100=n%100;
+  if(m10===1 && m100!==11) return one;
+  if(m10>=2 && m10<=4 && (m100<10||m100>=20)) return few;
+  return many;
+}
+function imgWord(n){ return LANG==='ru' ? plural(n,'картинка','картинки','картинок') : (n===1?'image':'images'); }
+function mediaStatsToast(n,a,i){
+  if(!n) return '';
+  return t('mediaLoaded')+': '+n+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')';
+}
+function registerMediaLib(files){
+  const media=[...files].filter(f=>{
+    if(f.name.startsWith('.')) return false;
+    if(/\.zip$/i.test(f.name)) return false;
+    if(/\.(md|markdown|txt|json)$/i.test(f.name)) return false;
+    return isMediaFile(f.name, f.type);
+  });
+  if(!media.length) return [0,0,0];
+  for(const f of media){
+    const url=URL.createObjectURL(f);
+    putMediaKey(mediaLib.files, f.webkitRelativePath||f.name, url);
+    putMediaKey(mediaLib.files, f.name, url);
+  }
+  const [a,i]=mediaCount(media);
+  mediaLib.audio+=a; mediaLib.image+=i;
+  toast(mediaStatsToast(a+i,a,i), 4000);
+  return [a+i,a,i];
+}
+function clearMediaLib(){
+  for(const k of Object.keys(mediaLib.files)){ try{ URL.revokeObjectURL(mediaLib.files[k]); }catch(e){} }
+  mediaLib.files={}; mediaLib.audio=0; mediaLib.image=0;
+}
+// поиск файла в библиотеке: точный путь → имя файла → имя в нижнем регистре
+function mediaFind(src){
+  if(/^(https?:|data:|blob:)/i.test(src)) return src;
+  const clean=String(src).replace(/^\.\//,'').replace(/\\/g,'/');
+  const lib=mediaLib.files;
+  const base=clean.split('/').pop()||clean;
+  return lib[clean]||lib[base]||lib[base.toLowerCase()]||null;
+}
 function resolverFor(metaId){
   const meta=deckMetas.find(m=>m.id===metaId);
   return src=>{
@@ -586,10 +697,12 @@ function resolverFor(metaId){
     if(meta && meta.kind==='local'){
       const map=localAssets[meta.id]||{};
       const clean=src.replace(/^\.\//,'');
-      if(map[clean]) return map[clean];
-      if(map[clean.split('/').pop()]) return map[clean.split('/').pop()];
-      return src;
+      const base=clean.split('/').pop()||clean;
+      const hit=map[clean]||map[base]||map[base.toLowerCase()];
+      if(hit) return hit;
     }
+    const g=mediaFind(src);
+    if(g) return g;
     if(meta && meta.url){
       try{ return new URL(src, meta.url).href; }catch(e){ return src; }
     }
@@ -662,7 +775,7 @@ async function fetchDeckText(id, silent){
 }
 
 /* ============================ audio ============================ */
-// путь к аудио пробуем по цепочке: blob из выбранных файлов → рядом со страницей → от URL колоды → как написано
+// путь к аудио пробуем по цепочке: blob из выбранных файлов → медиа-библиотека → рядом со страницей → от URL колоды → как написано
 function audioCandidates(src, metaId){
   const out=[]; const push=u=>{ if(u && !out.includes(u)) out.push(u); };
   if(/^(https?:|data:|blob:)/i.test(src)){ push(src); return out; }
@@ -670,15 +783,21 @@ function audioCandidates(src, metaId){
   if(meta && meta.kind==='local'){
     const map=localAssets[meta.id]||{};
     const clean=src.replace(/^\.\//,'');
-    push(map[clean]); push(map[clean.split('/').pop()]);
+    const base=clean.split('/').pop()||clean;
+    push(map[clean]); push(map[base]); push(map[base.toLowerCase()]);
   }
+  push(mediaFind(src));
   try{ push(new URL(src, location.href).href); }catch(e){}
   if(meta && meta.url){ try{ push(new URL(src, meta.url).href); }catch(e){} }
   push(src);
   return out;
 }
+const audioMissed={}; // тост «Аудио недоступно» — один раз на путь, без спама
 function tryAudioCand(cands, i, src){
-  if(i>=cands.length){ toast(t('audioFail')+': '+src); return; }
+  if(i>=cands.length){
+    if(!audioMissed[src]){ audioMissed[src]=true; toast(t('audioFail')+': '+src); }
+    return;
+  }
   let settled=false;
   const next=err=>{
     if(settled) return; settled=true;
@@ -689,7 +808,7 @@ function tryAudioCand(cands, i, src){
     const a=new Audio(cands[i]);
     a.addEventListener('error', ()=>next(null), {once:true});
     const p=a.play();
-    if(p && p.then) p.then(()=>{ settled=true; }).catch(next);
+    if(p && p.then) p.then(()=>{ settled=true; delete audioMissed[src]; }).catch(next);
     else settled=true;
   }catch(e){ next(null); }
 }
@@ -880,10 +999,16 @@ function homeView(){
     <div class="row">
       <button class="btn btn-primary" data-act="upload">${esc(t('uploadBtn'))}</button>
       <button class="btn" id="folder-btn" data-act="upload-folder">${esc(t('folderBtn'))}</button>
+      <button class="btn" id="zip-btn" data-act="upload-zip">${esc(t('zipBtn'))}</button>
     </div>
     <p class="muted" style="font-size:.85rem">${esc(t('uploadHint'))}</p>
-    <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,image/*,audio/*">
+    <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,.zip,image/*,audio/*">
     <input type="file" id="folder-input" class="hidden" webkitdirectory multiple>
+    <input type="file" id="zip-input" class="hidden" accept=".zip,application/zip,application/x-zip-compressed">
+  </div>
+  <div class="panel">
+    <h3>${esc(t('mediaTitle'))}</h3>
+    ${mediaLibPanelInner()}
   </div>
   <div class="panel">
     <h3>${esc(t('settingsTitle'))}</h3>
@@ -898,6 +1023,14 @@ function homeView(){
     </div>
     <input type="file" id="import-input" class="hidden" accept=".json,application/json">
   </div>`;
+}
+function mediaLibPanelInner(){
+  const n=mediaLib.audio+mediaLib.image;
+  if(!n) return `<p class="muted" style="font-size:.85rem;margin:0">${esc(t('mediaNone'))}</p>`;
+  const stat=mediaLib.audio+' '+t('mediaAudio')+' · '+mediaLib.image+' '+imgWord(mediaLib.image);
+  return `<p style="margin:0">✔ <b>${esc(t('mediaLoaded'))}</b> — ${esc(stat)}</p>
+    <p class="muted" style="font-size:.85rem;margin:.4rem 0 .7rem">${esc(t('mediaUntilReload'))}</p>
+    <div class="row"><button class="btn" data-act="clear-media">${esc(t('mediaClear'))}</button></div>`;
 }
 function chipHtml(kind, val, on, label){
   return `<span class="chip ${on?'on':''}" data-act="setup-set" data-kind="${kind}" data-arg="${esc(val)}">${esc(label)}</span>`;
@@ -1088,7 +1221,7 @@ function instrSections(){
   {id:'images', title:'Картинки', html:`
     <p>Картинка вставляется маркдаун-разметкой в любое поле. Три способа:</p>
     ${codebox(['![](img/dog.jpg)                    → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
-    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>
+    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства нажмите «Выбрать папку» или «Загрузить архив» (.zip): сайт предзагружает все картинки сразу в общую медиа-библиотеку и связывает их по относительному пути, а если точного совпадения нет — по имени файла. Библиотека действует до перезагрузки страницы и обслуживает все колоды, включая колоды по ссылке: колода может лежать на GitHub, а картинки — на вашем диске. Картинки, которых нет в библиотеке, не ломают карточку — на их месте появляется тихая пометка «картинка недоступна».</p>
     <p>На карточке картинка показывается в фиксированном размере — не выше ~170 px по высоте, пропорции сохраняются, поэтому огромные фото не ломают вид. Подходят png, jpg, webp, gif (в том числе анимированный), svg и bmp; <b>webm</b> — это видео, а не картинка: если нужна анимация, берите gif.</p>`},
   {id:'audio', title:'Аудио', html:`
     <p><b>audio</b> (полное имя <b>audio1</b>) — озвучка стороны 1: фронт карточки или prompt задания. <b>audio2</b> — озвучка стороны 2: оборот карточки или ответ. При показе стороны звук проигрывается <b>один раз</b> автоматически; повторить — клавиша <b>P</b> или кнопка 🔊 под карточкой. Несколько полей audio — плейлист, кнопки идут по порядку. Пишется модификатором под записью:</p>
@@ -1097,6 +1230,8 @@ function instrSections(){
     <p>Отдельная секция для заданий «услышь и введи». Запись начинается с <b>audio:</b> или <b>audio2:</b>, после « | » — текст ответа (тоже с вариантами через «;»):</p>
     ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
     <p>Первая строка: звучит английская озвучка — вводите русский перевод; вторая: звучит русская — вводите английский. Ключ audio:/audio2: лишь помечает, чья это озвучка; задание всегда показывается как 🔊 с полем ввода. Подсказка и теги — как обычно: модификаторами под записью или 3-м и 4-м полями. Направление у аудиозаданий зафиксировано, кнопки ⇄ нет.</p>
+    <h3>Как подключить аудио: папка или ZIP</h3>
+    <p>Выкладывать mp3 в репозиторий не нужно. Нажмите «Выбрать папку» и укажите папку с колодой и аудио, или «Загрузить архив» с тем же содержимым в .zip. Сайт предзагружает все файлы сразу: путь из <b>audio:</b> сопоставляется с файлами по относительному пути, а если точного совпадения нет — по имени файла, поэтому префикс папки не важен (<code>audio/hello.mp3</code> найдётся и как <code>hello.mp3</code>). Имя и расширение в остальном должны совпадать с файлом посимвольно; регистр лучше соблюдать — при несовпадении сайт попробует найти файл без учёта регистра. Кириллица и пробелы в именах работают: подключение идёт с диска, без сетевых ссылок. Файлы, которых нет среди подключённых, помечаются тихо — тост «Аудио недоступно: путь» показывается один раз.</p>
     <h3>Как сделать свои аудио</h3>
     <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
@@ -1108,9 +1243,9 @@ function instrSections(){
       <tr><td>Немецкий</td><td>de-DE-KatjaNeural, de-DE-ConradNeural</td></tr>
       <tr><td>Испанский</td><td>es-ES-ElviraNeural, es-MX-DaliaNeural</td></tr>
     </table></div>
-    <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы называйте латиницей без пробелов и храните в папке audio/ рядом с колодой.</p>`},
+    <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы удобно складывать в папку audio/ рядом с колодой; при локальной работе имена могут быть любыми — латиница без пробелов нужна только если планируете выкладывать файлы в репозиторий.</p>`},
   {id:'loading', title:'Загрузка на сайт', html:`
-    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — md/txt плюс картинки и аудио рядом; кнопка «Выбрать папку» берёт сразу целую папку: сайт сам найдёт в ней колоды и свяжет медиа по относительным путям. Текст колоды сохраняется в браузере (localStorage), медиа действует до перезагрузки страницы.</p>
+    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — три кнопки: «Выбрать файлы» (колоды .md/.txt вместе с медиа рядом, или сразу .zip), «Выбрать папку» (целая папка — колоды и медиа найдутся сами), «Загрузить архив» (.zip: колоды внутри импортируются, аудио и картинки распаковываются в память). Всё медиа предзагружается в общую медиа-библиотеку — до перезагрузки страницы оно обслуживает все колоды, включая колоды по ссылке: тексты колод могут лежать на GitHub, а аудио и картинки — на вашем диске. Состояние библиотеки видно на главной в панели «Медиа-библиотека», кнопка «Отключить» освобождает память. Тексты колод сохраняются в браузере (localStorage).</p>
     <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>`},
   {id:'progress', title:'Прогресс', html:`
     <p>По каждой карточке сайт помнит счётчики «знал / не знал», дату последнего показа и число подсказок. На плитке колоды видна сводка. В начале сессии можно выбрать «Повторить только ошибки» — тогда пойдут лишь карточки с ошибками. Кнопка сброса удаляет весь прогресс (осторожно: восстановить нельзя, заранее сделайте экспорт).</p>`},
@@ -1127,12 +1262,13 @@ function instrSections(){
     </table></div>
     <p>Клавиши привязаны к физическим кнопкам клавиатуры и работают на любой раскладке: на русской раскладке те же клавиши делают то же самое. На телефоне карточка переворачивается тапом по всей её площади.</p>`},
   {id:'faq', title:'Вопросы и ответы', html:`
-    <p><b>Почему у локальной колоды пропали картинки после перезагрузки?</b> Медиа с устройства живут одну сессию; текст сохраняется. Для постоянных картинок положите колоду на GitHub.</p>
+    <p><b>Почему у локальной колоды пропали картинки после перезагрузки?</b> Медиа живут до перезагрузки страницы; текст сохраняется. Нажмите «Выбрать папку» или «Загрузить архив» ещё раз — подключение занимает пару секунд.</p>
     <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
     <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
     <p><b>Задание спрашивает не в ту сторону.</b> Нажмите ⇄ в сессии или задайте direction в файле.</p>
     <p><b>Аудио не играет само.</b> Браузеры разрешают звук только после первого взаимодействия со страницей — кликните или нажмите любую клавишу, дальше автопроигрывание будет работать на каждой карточке. Повтор текущей стороны — клавиша P.</p>
-    <p><b>«Аудио недоступно: audio/…».</b> Сайт ищет файл по цепочке: среди файлов, выбранных вместе с колодой → рядом со страницей index.html → рядом с файлом колоды (для ссылок на GitHub). Что сделать: нажмите «Выбрать папку» и выберите папку целиком (колода + audio/); или положите папку audio/ рядом с index.html; для колоды по ссылке загрузите mp3 в тот же репозиторий с тем же относительным путём.</p>
+    <p><b>«Аудио недоступно: audio/…».</b> Этого файла нет среди подключённого медиа. Нажмите «Выбрать папку» (папка с колодой и аудио целиком) или «Загрузить архив» (.zip) — сайт предзагрузит файлы и свяжет пути по имени. Папка audio/ рядом с index.html тоже работает. Для колоды по ссылке выкладывать mp3 в репозиторий не обязательно: подключите их локально, они подхватятся.</p>
+    <p><b>Какой ZIP подойдёт?</b> Обычный .zip от любого архиватора (методы «без сжатия» и deflate); вложенные папки поддерживаются, имена файлов читаются как UTF-8 и как виндовая кириллица (cp1251/cp866). Зашифрованные архивы не читаются. Колоды .md/.txt внутри архива добавляются сами, аудио и картинки попадают в медиа-библиотеку.</p>
     <p><b>Внутри текста есть «;» или « | ».</b> «;» разделяет варианты, « | » — поля. Литеральные символы экранируйте: <code>\\;</code> и <code>\\|</code> — строка «Раз\\; два | Один» станет карточкой с текстом «Раз; два».</p>`}
   ];
 }
@@ -1174,7 +1310,7 @@ function instrSectionsEn(){
   {id:'images', title:'Images', html:`
     <p>Images use markdown syntax in any field. Three ways:</p>
     ${codebox(['![](img/dog.jpg)                    → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
-    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>
+    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads press "Choose folder" or "Load archive" (.zip): the site preloads every image into the shared media library and matches them by relative path first, then by file name. The library lasts until the page is reloaded and serves every deck, link-based decks included: the deck can live on GitHub while images stay on your disk. Images missing from the library do not break the card — a quiet "image unavailable" mark takes their place.</p>
     <p>On a card an image is shown at a fixed size — at most ~170 px tall, proportions kept, so huge photos do not break the layout. png, jpg, webp, gif (including animated), svg and bmp all work; <b>webm</b> is a video, not an image — use gif for animation.</p>`},
   {id:'audio', title:'Audio', html:`
     <p><b>audio</b> (full name <b>audio1</b>) is the side-1 sound: the front of a card or the prompt of a task. <b>audio2</b> is side 2: the back of a card or the answer. When a side with audio is shown, the sound plays <b>once</b> automatically; press <b>P</b> or the 🔊 button to replay. Several audio fields make a playlist with buttons in order. Written as a modifier line under a record:</p>
@@ -1183,12 +1319,14 @@ function instrSectionsEn(){
     <p>A separate section for "hear and type" tasks. A record starts with <b>audio:</b> or <b>audio2:</b>; after " | " comes the answer text (also with ";" alternatives):</p>
     ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
     <p>The first line: English audio plays — type the Russian translation; the second: Russian audio — type English. The audio:/audio2: key only marks whose voice it is; the task is always shown as 🔊 with an input field. Hint and tags work as usual: modifiers under the record or the 3rd and 4th fields. Listening tasks have a fixed direction and no ⇄ button.</p>
+    <h3>Connecting audio: folder or ZIP</h3>
+    <p>There is no need to upload mp3 files to a repository. Press "Choose folder" and pick the folder with the deck and audio, or "Load archive" with the same content in a .zip. The site preloads all files at once: the path from <b>audio:</b> is matched by the relative path first, then by the file name, so the folder prefix does not matter (<code>audio/hello.mp3</code> is also found as <code>hello.mp3</code>). Apart from that the name and extension must match the file character for character; case is best respected — on a mismatch the site also tries a case-insensitive search. Cyrillic names and spaces work fine: files come from disk, no network URLs involved. Files that are not connected are marked quietly — the "Audio unavailable: path" toast appears once.</p>
     <h3>Making your own audio</h3>
     <p>Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
-    <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Name files in Latin letters without spaces, keep them in an audio/ folder.</p>`},
+    <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Keep files in an audio/ folder next to the deck; for local use names can be anything — Latin letters without spaces matter only if you plan to push the files into a repository.</p>`},
   {id:'loading', title:'Loading decks', html:`
-    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — md/txt plus nearby media; the "Choose folder" button takes a whole folder at once: decks inside are found and media is linked by relative paths. Deck text is stored in the browser (localStorage), media lasts for the session. Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
+    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — three buttons: "Choose files" (.md/.txt decks together with nearby media, or a .zip right away), "Choose folder" (a whole folder — decks and media are found for you), "Load archive" (.zip: decks inside are imported, audio and images are unpacked into memory). All media is preloaded into the shared media library — until the page is reloaded it serves every deck, link-based decks included: deck texts can live on GitHub while audio and images stay on your disk. The library state is visible on the home screen in the "Media library" panel; the "Disconnect media" button frees the memory. Deck text is stored in the browser (localStorage). Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
   {id:'progress', title:'Progress', html:`
     <p>Per card the site keeps knew/missed counters, last-seen date and hint count. Session setup offers "Repeat mistakes only". The reset button wipes all progress — export first, it cannot be undone.</p>`},
   {id:'keys', title:'Keyboard', html:`
@@ -1203,12 +1341,13 @@ function instrSectionsEn(){
     </table></div>
     <p>Keys are bound to physical keyboard buttons and work on any keyboard layout: with a Russian layout selected the same keys do the same thing. On phones a card flips by tapping anywhere on it.</p>`},
   {id:'faq', title:'FAQ', html:`
-    <p><b>Images of a local deck disappeared after reload.</b> Device media lives for one session; the text is kept. Put decks on GitHub for permanent images.</p>
+    <p><b>Images of a local deck disappeared after reload.</b> Media lasts until the page is reloaded; the text is kept. Press "Choose folder" or "Load archive" again — reconnecting takes a couple of seconds.</p>
     <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
     <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
     <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>
     <p><b>Audio does not play by itself.</b> Browsers allow sound only after the first interaction with the page — click or press any key once, then autoplay works on every card. Press P to replay the current side.</p>
-    <p><b>"Audio unavailable: audio/…".</b> The site looks the file up in a chain: among the files selected together with the deck → next to index.html → next to the deck file (for GitHub links). What to do: press "Choose folder" and pick the whole folder (deck + audio/); or put the audio/ folder next to index.html; for a link-based deck upload the mp3 files to the same repository with the same relative paths.</p>
+    <p><b>"Audio unavailable: audio/…".</b> This file is not among the connected media. Press "Choose folder" (the whole folder with the deck and audio) or "Load archive" (.zip) — the site preloads the files and matches paths by name. An audio/ folder next to index.html works too. For a link-based deck you do not have to push mp3 files into the repository: connect them locally and they will be picked up.</p>
+    <p><b>Which ZIP works?</b> A regular .zip from any archiver (stored or deflate methods); nested folders are supported, file names are read as UTF-8 and as Windows Cyrillic (cp1251/cp866). Encrypted archives are not read. .md/.txt decks inside the archive are added automatically; audio and images go to the media library.</p>
     <p><b>The text contains ";" or " | ".</b> ";" splits alternatives, " | " separates fields. Escape literal characters: <code>\\;</code> and <code>\\|</code> — the line "Раз\\; два | Один" becomes a card with the text "Раз; два".</p>`}
   ];
 }
@@ -1238,12 +1377,15 @@ async function onFilesChosen(fileList){
     const m=deckMetas.find(x=>x.id===id);
     if(m){ m.text=text; m.name=deck.title; m.savedAt=nowIso(); delete m.error; saveDecks(); toast(t('updated')); }
     registerAssets(id, files);
+    registerMediaLib(files);
     rerender();
     return;
   }
-  let added=0;
+  registerMediaLib(files);
+  let added=0, zips=0;
   for(const f of files){
     if(f.name.startsWith('.')) continue;
+    if(/\.zip$/i.test(f.name)){ zips++; await importZip(f); continue; }
     if(/\.(md|markdown|txt)$/i.test(f.name)){
       const text=await f.text();
       const deck=parseDeck(text, f.name);
@@ -1254,8 +1396,8 @@ async function onFilesChosen(fileList){
       added++;
     }
   }
-  if(!added){ toast(t('invalidFile')); }
-  else { toast(added+' × '+t('added')); }
+  if(!added && !zips){ toast(t('invalidFile')); }
+  else if(added){ toast(added+' × '+t('added')); }
   rerender();
 }
 function registerAssets(deckId, files){
@@ -1272,8 +1414,108 @@ function registerAssets(deckId, files){
       if(noRoot) map[noRoot]=url;
     }
     map[f.name]=url;
+    map[f.name.toLowerCase()]=url;
   }
   if(Object.keys(map).length) localAssets[deckId]=map;
+}
+
+/* ============================ zip ============================ */
+// Чтение ZIP без внешних библиотек. Имена записей берутся из центрального каталога,
+// записи «без сжатия» (метод 0) берутся как есть, deflate (метод 8) распаковывается
+// штатным DecompressionStream('deflate-raw'). Зашифрованные записи и ZIP64 не поддерживаются.
+function decodeZipName(bytes, flags){
+  if(flags & 0x0800) return new TextDecoder('utf-8').decode(bytes); // имя помечено как UTF-8
+  try{ return new TextDecoder('utf-8',{fatal:true}).decode(bytes); }
+  catch(e){}
+  // без UTF-8-метки архиваторы под Windows часто пишут имена в системной кодировке
+  for(const enc of ['windows-1251','ibm866']){
+    try{ return new TextDecoder(enc,{fatal:true}).decode(bytes); }catch(e){}
+  }
+  return new TextDecoder('utf-8').decode(bytes);
+}
+async function unzipEntry(u8, dv, en){
+  if(dv.getUint32(en.off,true)!==0x04034b50) throw new Error('bad local header');
+  const nLen=dv.getUint16(en.off+26,true), eLen=dv.getUint16(en.off+28,true);
+  const start=en.off+30+nLen+eLen;
+  if(start+en.size>u8.length) throw new Error('truncated');
+  const comp=u8.subarray(start, start+en.size);
+  if(en.method===0) return new Blob([comp], {type:mimeFor(en.name)});
+  const ds=new DecompressionStream('deflate-raw');
+  const blob=await new Response(new Blob([comp]).stream().pipeThrough(ds)).blob();
+  return blob.slice(0, blob.size, mimeFor(en.name) || blob.type);
+}
+async function readZip(file){
+  const buf=await file.arrayBuffer();
+  const u8=new Uint8Array(buf), dv=new DataView(buf);
+  let eocd=-1;
+  const from=Math.max(0, u8.length-65557);
+  for(let p=u8.length-22; p>=from; p--){
+    if(dv.getUint32(p,true)===0x06054b50){ eocd=p; break; }
+  }
+  if(eocd<0) throw new Error('not a zip');
+  const count=dv.getUint16(eocd+10,true);
+  let off=dv.getUint32(eocd+16,true);
+  if(off===0xFFFFFFFF || off+46>u8.length) throw new Error('zip64 unsupported');
+  const entries=[];
+  for(let n=0; n<count; n++){
+    if(off+46>u8.length || dv.getUint32(off,true)!==0x02014b50) break;
+    const flags=dv.getUint16(off+8,true);
+    const method=dv.getUint16(off+10,true);
+    const size=dv.getUint32(off+20,true);
+    const nameLen=dv.getUint16(off+28,true), extraLen=dv.getUint16(off+30,true), cmtLen=dv.getUint16(off+32,true);
+    const lho=dv.getUint32(off+42,true);
+    const name=decodeZipName(u8.subarray(off+46, off+46+nameLen), flags);
+    if(!(flags&1) && size!==0xFFFFFFFF && lho!==0xFFFFFFFF && !name.endsWith('/')) entries.push({name, method, size, off:lho});
+    off+=46+nameLen+extraLen+cmtLen;
+  }
+  const out=[];
+  for(const en of entries){
+    if(en.off+30>u8.length || dv.getUint32(en.off,true)!==0x04034b50) continue;
+    try{ out.push({name:en.name, blob:await unzipEntry(u8, dv, en)}); }catch(e){ if(e && e.message==='zip64 unsupported') throw e; }
+  }
+  return out;
+}
+let zipBusy=false;
+async function importZip(file){
+  if(zipBusy) return;
+  zipBusy=true;
+  toast(t('zipImporting'));
+  try{
+    if(!('DecompressionStream' in window)){ toast(t('zipUnsupported')); return; }
+    const entries=await readZip(file);
+    const media=[], decks=[];
+    for(const en of entries){
+      const name=en.name.replace(/^\.?\//,'');
+      const base=name.split('/').pop()||name;
+      if(name.startsWith('__MACOSX/') || base.startsWith('._')) continue; // мусор macOS-архивов
+      if(/\.(md|markdown|txt)$/i.test(base)) decks.push({name:base, text:await en.blob.text()});
+      else if(isMediaFile(base, en.blob.type)) media.push({name, blob:en.blob});
+    }
+    for(const m of media){
+      const url=URL.createObjectURL(m.blob);
+      putMediaKey(mediaLib.files, m.name, url);
+      putMediaKey(mediaLib.files, m.name.split('/').pop()||m.name, url);
+    }
+    const [a,i]=mediaCount(media);
+    mediaLib.audio+=a; mediaLib.image+=i;
+    let added=0;
+    for(const d of decks){
+      const deck=parseDeck(d.text, d.name);
+      if(!deck.cards.length) continue;
+      addDeckFromText(d.text, d.name, 'local', null);
+      added++;
+    }
+    if(!media.length && !added){ toast(t('zipEmpty')); return; }
+    const parts=[];
+    if(media.length) parts.push(media.length+' '+(LANG==='ru'?'медиа':'media')+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')');
+    if(added) parts.push(added+' '+(LANG==='ru'?plural(added,'колода','колоды','колод'):(added===1?'deck':'decks')));
+    toast(t('zipImported')+': '+parts.join(', '), 5000);
+    rerender();
+  }catch(e){
+    toast(t('zipFail')+(e && e.message ? ': '+e.message : ''));
+  }finally{
+    zipBusy=false;
+  }
 }
 const act={
   'set-lang':arg=>{ settings.lang=arg; LANG=arg; saveSettings(); rerender(); },
@@ -1312,6 +1554,8 @@ const act={
   },
   'upload':()=>{ document.getElementById('file-input').click(); },
   'upload-folder':()=>{ const el=document.getElementById('folder-input'); if(el) el.click(); },
+  'upload-zip':()=>{ const el=document.getElementById('zip-input'); if(el) el.click(); },
+  'clear-media':()=>{ clearMediaLib(); toast(t('mediaCleared')); rerender(); },
   'reupload':arg=>{ pendingReupload=arg; document.getElementById('file-input').click(); },
   'refresh':arg=>{ fetchDeckText(arg, false); },
   'delete':arg=>{
@@ -1421,6 +1665,8 @@ function bindDynamic(){
   if(fi) fi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
   const fo=document.getElementById('folder-input');
   if(fo) fo.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const zi=document.getElementById('zip-input');
+  if(zi) zi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
   const fb=document.getElementById('folder-btn');
   if(fb && !('webkitdirectory' in document.createElement('input'))) fb.classList.add('hidden');
   const ii=document.getElementById('import-input');
@@ -1449,6 +1695,17 @@ document.addEventListener('click', e=>{
   const fn=act[el.dataset.act];
   if(fn) fn(el.dataset.arg, el, e);
 });
+// тихая пометка вместо консольных 404: картинка, которой нет в библиотеке, заменяется подписью
+document.addEventListener('error', e=>{
+  const el=e.target;
+  if(el && el.tagName==='IMG'){
+    const note=document.createElement('span');
+    note.className='muted';
+    note.style.fontSize='.8rem';
+    note.textContent='🖼 '+t('mediaMissing')+(el.getAttribute('alt')?': '+el.getAttribute('alt'):'');
+    el.replaceWith(note);
+  }
+}, true);
 document.addEventListener('keydown', e=>{
   if(!(location.hash||'').startsWith('#/session') || !S || S.done) return;
   if(pendingSetup) return;
@@ -1482,7 +1739,8 @@ function boot(){
   seedBuiltins();
   renderApp();
 }
-window.LT={ parseDeck, deckMetas:()=>deckMetas, progress:()=>progress, addDeckFromText, startSession, session:()=>S };
+window.LT={ parseDeck, deckMetas:()=>deckMetas, progress:()=>progress, addDeckFromText, startSession, session:()=>S,
+            onFilesChosen, mediaLib:()=>mediaLib, localAssets:()=>localAssets, resolverFor, audioCandidates };
 boot();
 </script>
 </body>
