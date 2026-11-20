@@ -117,11 +117,11 @@ const RECOMMENDED_DECKS = [
   // { name: 'English A1', url: 'decks/en-basic.md' },
 ];
 
-/* Демо-колода (испанский → русский) */
+/* Демо-колода (английский → русский) */
 const DEMO_DECK = [
 '---',
-'title: Испанский A1 — Приветствия и знакомство',
-'lang: es',
+'title: Английский A1 — Приветствия и знакомство',
+'lang: en',
 'base: ru',
 'reverse: true',
 'description: Демо-колода. Свои базы добавляйте по ссылке или файлом; формат описан в разделе «Инструкция».',
@@ -129,30 +129,30 @@ const DEMO_DECK = [
 '',
 '# Карточки',
 '',
-'hola | привет',
-'adiós | до свидания',
-'gracias | спасибо',
-'por favor | пожалуйста',
-'sí | да',
+'hello | привет',
+'goodbye | до свидания',
+'thank you | спасибо',
+'please | пожалуйста',
+'yes | да',
 'no | нет',
-'buenos días | добрый день',
-'buenas noches | добрый вечер / спокойной ночи',
-'¿cómo estás? | как дела?',
-'me llamo Ana | меня зовут Ана',
-'mucho gusto | очень приятно',
-'hasta luego | до скорого',
-'un café | кофе',
-'la cuenta | счёт (в кафе)',
+'good morning | доброе утро',
+'good evening | добрый вечер',
+'how are you? | как дела?',
+'my name is Ana | меня зовут Ана',
+'nice to meet you | очень приятно',
+'see you later | до скорого',
+'a coffee | кофе',
+'the bill | счёт (в кафе)',
 '',
 'front: |',
-'  Buenos días, ¿qué tal?',
+'  Good morning, how are you?',
 'back: |',
 '  Добрый день, как дела?',
 'hint: формальное приветствие',
 'tags: приветствия',
 '',
 'front: |',
-'  ¡Hasta mañana!',
+'  See you tomorrow!',
 'back: |',
 '  До завтра!',
 'hint: говорится при прощании',
@@ -163,28 +163,30 @@ const DEMO_DECK = [
 'prompt: |',
 '  Привет, как дела?',
 'answer: |',
-'  ¡Hola! ¿Cómo estás?',
-'alt: Hola, ¿qué tal?; ¿Qué tal?',
+'  Hello! How are you?',
+'alt: Hi! How are you?; How are you doing?',
 'hint: неформальное приветствие',
 'tags: приветствия',
 '',
 'prompt: |',
 '  Меня зовут Ана.',
 'answer: |',
-'  Me llamo Ana',
+'  My name is Ana',
+'alt: I am Ana',
 'tags: знакомство',
 '',
 'prompt: |',
 '  Добрый день, как дела?',
 'answer: |',
-'  Buenos días, ¿qué tal?',
-'hint: не забудьте перевёрнутый знак вопроса',
+'  Good morning, how are you?',
+'hint: до полудня — good morning',
 'tags: приветствия',
 '',
 'prompt: |',
 '  Один кофе, пожалуйста.',
 'answer: |',
-'  Un café, por favor',
+'  A coffee, please',
+'alt: One coffee, please',
 'tags: кафе',
 '',
 ].join('\n');
@@ -561,16 +563,23 @@ function addDeckFromText(text, name, kind, url){
   upsertDeck(meta);
   return meta;
 }
+function demoDeckMeta(){
+  return { id:'builtin:demo-en', kind:'builtin', name:'Английский A1 — Приветствия и знакомство', url:'', text:DEMO_DECK, savedAt:nowIso() };
+}
 function seedBuiltins(){
   let changed=false;
-  const demoId='builtin:demo-es';
+  // миграция: старая испанская демо-колода заменяется английской
+  const legacy=deckMetas.findIndex(d=>d.id==='builtin:demo-es');
+  if(legacy>=0){ deckMetas.splice(legacy,1); changed=true; }
+  const demoId='builtin:demo-en';
   const dm=deckMetas.find(d=>d.id===demoId);
   if(!dm){
-    deckMetas.unshift({ id:demoId, kind:'builtin', name:'Испанский A1 — Приветствия и знакомство', url:'', text:DEMO_DECK, savedAt:nowIso() });
+    deckMetas.unshift(demoDeckMeta());
     changed=true;
   } else if(dm.text!==DEMO_DECK){
     // встроенная демо-колода всегда синхронизируется с текущей версией сайта; прогресс сохраняется по id карточек
     dm.text=DEMO_DECK;
+    dm.name=demoDeckMeta().name;
     changed=true;
   }
   for(const r of RECOMMENDED_DECKS){
@@ -752,7 +761,7 @@ function deckStatsHtml(m){
 }
 function homeView(){
   const decks=deckMetas.map(deckStatsHtml).join('');
-  const demoMissing=!deckMetas.some(d=>d.id==='builtin:demo-es');
+  const demoMissing=!deckMetas.some(d=>d.id==='builtin:demo-en');
   return `
   <div class="top">
     <h1>${esc(t('appName'))} <span class="muted" style="font-size:.8rem;font-weight:400">${esc(t('tagline'))}</span></h1>
@@ -930,13 +939,13 @@ function instrSections(){
   {id:'format', title:'Формат базы', html:`
     <h3>Шапка колоды</h3>
     <p>Необязательный YAML-блок в начале файла задаёт название и языки:</p>
-    ${codebox(['---','title: Испанский A1 — Урок 1','lang: es        # изучаемый язык','base: ru        # язык переводов','reverse: true   # карточки показывать в обе стороны','description: Описание для себя','---',''].join('\n'))}
+    ${codebox(['---','title: Английский A1 — Урок 1','lang: en        # изучаемый язык','base: ru        # язык переводов','reverse: true   # карточки показывать в обе стороны','description: Описание для себя','---',''].join('\n'))}
     <h3>Флеш-карты</h3>
     <p>Короткие карточки пишутся одной строкой: сторона A, затем <b> | </b>, затем сторона B. Если вертикальная черта нужна внутри текста — экранируйте её обратным слэшем (\\|). Длинные фразы и дополнительные поля пишутся блоком:</p>
-    ${codebox(['hola | привет','¿cómo estás? | как дела?','![](img/perro.jpg) **perro** | собака','','front: |','  Buenos días, ¿qué tal?','back: |','  Добрый день, как дела?','hint: формальное приветствие','audio: audio/buenos-dias.mp3','tags: приветствия, формальное',''].join('\n'))}
+    ${codebox(['hello | привет','how are you? | как дела?','![](img/dog.jpg) **dog** | собака','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','hint: формальное приветствие','audio: audio/good-morning.mp3','tags: приветствия, формальное',''].join('\n'))}
     <h3>Задания (ввод перевода)</h3>
     <p>Блок с полями prompt (что показываем) и answer (что нужно написать). Проверка — самооценка: сайт показывает эталон с подсветкой отличий. Кнопка «Подсказка» открывает по одной случайной букве ответа; кнопка ⇄ меняет направление задания прямо в сессии.</p>
-    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  ¡Hola! ¿Cómo estás?','alt: Hola, ¿qué tal?; ¿Qué tal?','hint: неформальное приветствие','tags: приветствия',''].join('\n'))}
+    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  Hello! How are you?','alt: Hi! How are you?; How are you doing?','hint: неформальное приветствие','tags: приветствия',''].join('\n'))}
     <h3>Все поля</h3>
     <div class="tablewrap"><table>
       <tr><th>Поле</th><th>Где</th><th>Что делает</th></tr>
@@ -951,27 +960,27 @@ function instrSections(){
       <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление</td></tr>
     </table></div>
     <h3>Правила разбора</h3>
-    <p>• Карточки разделяются строкой <b>---</b>.<br>• Заголовки <b># Карточки</b> и <b># Задания</b> переключают тип последующих блоков.<br>• Без заголовков тип определяется автоматически: блок с answer — задание, строка с « | » — флеш-карта.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+    <p>• Карточки разделяются строкой <b>---</b> или пустой строкой перед новым <b>front:</b>/<b>prompt:</b>; короткие карточки идут по одной на строку.<br>• Заголовки <b># Карточки</b> и <b># Задания</b> переключают тип последующих блоков.<br>• Без заголовков тип определяется автоматически: блок с answer — задание, строка с « | » — флеш-карта.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
   {id:'txt', title:'Файлы .txt (таблица)', html:`
     <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
-    ${codebox('# комментарий\nhola\tпривет\nperro\tсобака\n\nПривет, как дела?\t¡Hola! ¿Cómo estás?\tприветствия\n')}`},
+    ${codebox('# комментарий\nhello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tприветствия\n')}`},
   {id:'images', title:'Картинки', html:`
     <p>Картинка вставляется маркдаун-разметкой в любое поле. Три способа:</p>
-    ${codebox(['![](img/perro.jpg)                → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
+    ${codebox(['![](img/dog.jpg)                    → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
     <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>`},
   {id:'audio', title:'Аудио', html:`
     <p>Поле <b>audio:</b> добавляет кнопку воспроизведения к карточке или заданию. Путь — как у картинок: файл рядом с колодой или внешняя ссылка. Несколько полей audio — плейлист. Автовоспроизведение включается в настройках внизу главной страницы.</p>
-    ${codebox(['front: |','  Buenos días, ¿qué tal?','back: |','  Добрый день, как дела?','audio: audio/buenos-dias.mp3',''].join('\n'))}
+    ${codebox(['front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3',''].join('\n'))}
     <h3>Как сделать свои аудио</h3>
     <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
-    ${codebox(['pip install edge-tts','','edge-tts --voice es-ES-ElviraNeural --text "Buenos días, ¿qué tal?" --write-media audio/buenos-dias.mp3',''].join('\n'))}
+    ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
     <div class="tablewrap"><table>
       <tr><th>Язык</th><th>Голоса</th></tr>
-      <tr><td>Испанский</td><td>es-ES-ElviraNeural, es-MX-DaliaNeural, es-US-AlonsoNeural</td></tr>
+      <tr><td>Английский</td><td>en-US-AriaNeural, en-GB-SoniaNeural, en-US-GuyNeural</td></tr>
       <tr><td>Русский</td><td>ru-RU-SvetlanaNeural, ru-RU-DmitryNeural</td></tr>
-      <tr><td>Английский</td><td>en-US-AriaNeural, en-GB-SoniaNeural</td></tr>
       <tr><td>Французский</td><td>fr-FR-DeniseNeural, fr-FR-HenriNeural</td></tr>
       <tr><td>Немецкий</td><td>de-DE-KatjaNeural, de-DE-ConradNeural</td></tr>
+      <tr><td>Испанский</td><td>es-ES-ElviraNeural, es-MX-DaliaNeural</td></tr>
     </table></div>
     <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы называйте латиницей без пробелов и храните в папке audio/ рядом с колодой.</p>`},
   {id:'loading', title:'Загрузка на сайт', html:`
@@ -1007,13 +1016,13 @@ function instrSectionsEn(){
   {id:'format', title:'Deck format', html:`
     <h3>Deck header</h3>
     <p>An optional YAML block at the top sets the title and languages:</p>
-    ${codebox(['---','title: Spanish A1 — Lesson 1','lang: es        # target language','base: ru        # translation language','reverse: true   # show cards in both directions','---',''].join('\n'))}
+    ${codebox(['---','title: English A1 — Lesson 1','lang: en        # target language','base: ru        # translation language','reverse: true   # show cards in both directions','---',''].join('\n'))}
     <h3>Flashcards</h3>
     <p>Short cards are one line: side A, then <b> | </b>, then side B. Escape a literal bar as \\|. Long phrases and extra fields use the block form:</p>
-    ${codebox(['hola | hello','front: |','  Buenos días, ¿qué tal?','back: |','  Good morning, how are you?','hint: formal greeting','audio: audio/buenos-dias.mp3','tags: greetings',''].join('\n'))}
+    ${codebox(['hello | привет','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','hint: formal greeting','audio: audio/good-morning.mp3','tags: greetings',''].join('\n'))}
     <h3>Typing tasks</h3>
     <p>A block with prompt (shown) and answer (to type). Grading is self-assessed: the site shows the reference with a word diff. The Hint button reveals random letters one by one; ⇄ flips the task direction on the fly.</p>
-    ${codebox(['prompt: |','  Hello, how are you?','answer: |','  ¡Hola! ¿Cómo estás?','alt: Hola, ¿qué tal?','tags: greetings',''].join('\n'))}
+    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  Hello! How are you?','alt: Hi! How are you?','tags: greetings',''].join('\n'))}
     <h3>Fields</h3>
     <div class="tablewrap"><table>
       <tr><th>Field</th><th>Applies to</th><th>Meaning</th></tr>
@@ -1028,17 +1037,17 @@ function instrSectionsEn(){
       <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both</td></tr>
     </table></div>
     <h3>Parsing rules</h3>
-    <p>• Cards are separated by a <b>---</b> line.<br>• Headings <b># Карточки</b> / <b># Задания</b> (cards / tasks) switch the block type.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+    <p>• Cards are separated by a <b>---</b> line, or by a blank line before a new <b>front:</b>/<b>prompt:</b>; one-line shorthand cards need no separator.<br>• Headings <b># Карточки</b> / <b># Задания</b> (cards / tasks) switch the block type.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
   {id:'txt', title:'Plain .txt (TSV)', html:`
     <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
-    ${codebox('hola\thello\nperro\tdog\n\nHello, how are you?\t¡Hola! ¿Cómo estás?\tgreetings\n')}`},
+    ${codebox('hello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tgreetings\n')}`},
   {id:'images', title:'Images', html:`
     <p>Images use markdown syntax in any field. Three ways:</p>
-    ${codebox(['![](img/perro.jpg)                → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
+    ${codebox(['![](img/dog.jpg)                    → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
     <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>`},
   {id:'audio', title:'Audio', html:`
     <p>The <b>audio:</b> field adds a play button. Paths work like images. Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
-    ${codebox(['pip install edge-tts','','edge-tts --voice es-ES-ElviraNeural --text "Buenos días" --write-media audio/buenos-dias.mp3',''].join('\n'))}
+    ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
     <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Name files in Latin letters without spaces, keep them in an audio/ folder.</p>`},
   {id:'loading', title:'Loading decks', html:`
     <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — md/txt plus nearby media; deck text is stored in the browser (localStorage), media lasts for the session. Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
@@ -1161,8 +1170,8 @@ const act={
     saveDecks(); rerender();
   },
   'restore-demo':()=>{
-    if(!deckMetas.some(d=>d.id==='builtin:demo-es')){
-      deckMetas.unshift({ id:'builtin:demo-es', kind:'builtin', name:'Испанский A1 — Приветствия и знакомство', url:'', text:DEMO_DECK, savedAt:nowIso() });
+    if(!deckMetas.some(d=>d.id==='builtin:demo-en')){
+      deckMetas.unshift(demoDeckMeta());
       saveDecks();
     }
     rerender();
