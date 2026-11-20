@@ -11,6 +11,7 @@
   --bad:#d64550; --bad-bg:#fdeaea; --line:#e3e7ef; --chip:#eef1f8;
   --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
   --radius:14px;
+  --font-mono:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono','Roboto Mono',monospace;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#12151c; --card:#1b202b; --ink:#e8ecf5; --muted:#9aa3b5;
@@ -19,7 +20,8 @@
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+html{font-size:16px}  /* база rem: настройка «Размер шрифта» меняет её через JS, и масштабируется весь интерфейс */
+body{background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:1rem;line-height:1.5;-webkit-font-smoothing:antialiased}
 #app{max-width:860px;margin:0 auto;padding:16px 14px 70px}
 h1{font-size:1.35rem;margin:.2rem 0 1rem}
 h2{font-size:1.12rem;margin:1.6rem 0 .6rem}
@@ -49,7 +51,8 @@ p{margin:.5rem 0}
 .spacer{flex:1}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:16px}
 .panel h3{margin-top:0}
-input[type=text],input[type=url],input[type=number]{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:.95rem}
+input[type=text],input[type=url],input[type=number],select.sel{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:.95rem;font-family:inherit}
+select.sel{appearance:none;-webkit-appearance:none}
 input:focus{outline:2px solid var(--accent);outline-offset:-1px}
 label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35rem}
 .overlay{position:fixed;inset:0;background:rgba(10,14,25,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
@@ -93,7 +96,7 @@ label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35re
 .instr .content section{border-bottom:1px solid var(--line);padding-bottom:1.2rem;margin-bottom:1.4rem}
 .instr .content section:last-child{border-bottom:0;margin-bottom:0}
 .codebox{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:.6rem 0 1rem}
-.codebox pre{margin:0;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre}
+.codebox pre{margin:0;font:.78rem/1.55 var(--font-mono);white-space:pre}
 .copy{position:absolute;top:6px;right:6px}
 .tablewrap{overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:.88rem;margin:.6rem 0}
@@ -209,6 +212,7 @@ ru:{
   fetchFail:'Не удалось загрузить', parseEmpty:'В файле не найдено ни одной карточки',
   added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
   settingsTitle:'Настройки', autoplay:'Автовоспроизведение аудио при показе карточки',
+  fontSize:'Размер шрифта',
   exportProgress:'Экспортировать прогресс', importProgress:'Импортировать прогресс',
   resetProgress:'Сбросить весь прогресс', confirmReset:'Точно сбросить весь прогресс?',
   progressCleared:'Прогресс сброшен', imported:'Прогресс импортирован', invalidFile:'Некорректный файл прогресса',
@@ -244,6 +248,7 @@ en:{
   fetchFail:'Failed to load', parseEmpty:'No cards found in the file',
   added:'Deck added', updated:'Updated', saved:'Saved',
   settingsTitle:'Settings', autoplay:'Autoplay audio when a card is shown',
+  fontSize:'Font size',
   exportProgress:'Export progress', importProgress:'Import progress',
   resetProgress:'Reset all progress', confirmReset:'Really reset all progress?',
   progressCleared:'Progress cleared', imported:'Progress imported', invalidFile:'Invalid progress file',
@@ -510,7 +515,7 @@ function nextRevealIndex(target, revealed){
 const LS={ settings:'lt.settings', decks:'lt.decks', progress:'lt.progress' };
 function loadJson(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
 function saveJson(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('localStorage: '+e.message); } }
-let settings=Object.assign({lang:'ru', autoplay:false}, loadJson(LS.settings, {}));
+let settings=Object.assign({lang:'ru', autoplay:false, fontScale:1}, loadJson(LS.settings, {}));
 let deckMetas=loadJson(LS.decks, []);
 let progress=loadJson(LS.progress, {});
 LANG = I18N[settings.lang] ? settings.lang : 'ru';
@@ -638,6 +643,9 @@ function startSession(config){
   const exs=[];
   for(const d of decks){
     for(const c of d.cards){
+      // режим сессии фильтрует тип упражнений: в «Заданиях» карточек быть не должно
+      if(config.mode==='cards' && c.type!=='card') continue;
+      if(config.mode==='tasks' && c.type!=='task') continue;
       if(config.tags.length && !c.tags.some(tg=>config.tags.includes(tg))) continue;
       let dirs;
       if(c.type==='card'){
@@ -787,6 +795,16 @@ function homeView(){
   <div class="panel">
     <h3>${esc(t('settingsTitle'))}</h3>
     <label class="row" style="gap:.5rem;cursor:pointer"><input type="checkbox" id="autoplay" ${settings.autoplay?'checked':''}> ${esc(t('autoplay'))}</label>
+    <div class="row" style="gap:.5rem;margin-top:12px;align-items:center">
+      <span style="white-space:nowrap">${esc(t('fontSize'))}</span>
+      <select class="sel" id="fontScale">
+        <option value="0.85" ${settings.fontScale===0.85?'selected':''}>85%</option>
+        <option value="1" ${settings.fontScale===1?'selected':''}>100%</option>
+        <option value="1.15" ${settings.fontScale===1.15?'selected':''}>115%</option>
+        <option value="1.3" ${settings.fontScale===1.3?'selected':''}>130%</option>
+        <option value="1.5" ${settings.fontScale===1.5?'selected':''}>150%</option>
+      </select>
+    </div>
     <div class="row" style="margin-top:12px">
       <button class="btn" data-act="export">${esc(t('exportProgress'))}</button>
       <button class="btn" data-act="import">${esc(t('importProgress'))}</button>
@@ -1267,6 +1285,8 @@ function bindDynamic(){
   }
   const auto=document.getElementById('autoplay');
   if(auto) auto.addEventListener('change',()=>{ settings.autoplay=auto.checked; saveSettings(); });
+  const fs=document.getElementById('fontScale');
+  if(fs) fs.addEventListener('change',()=>{ settings.fontScale=parseFloat(fs.value)||1; saveSettings(); applyFontScale(); });
   const fi=document.getElementById('file-input');
   if(fi) fi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
   const ii=document.getElementById('import-input');
@@ -1319,7 +1339,11 @@ document.addEventListener('keydown', e=>{
   }
 });
 window.addEventListener('hashchange', ()=>{ if(location.hash!=='#/session') S=null; renderApp(); });
+function applyFontScale(){
+  document.documentElement.style.fontSize=Math.round(16*(settings.fontScale||1)*100)/100+'px';
+}
 function boot(){
+  applyFontScale();
   seedBuiltins();
   renderApp();
 }
