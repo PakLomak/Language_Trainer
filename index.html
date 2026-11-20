@@ -138,7 +138,7 @@ const DEMO_DECK = [
 'please | пожалуйста',
 'yes | да',
 'no | нет',
-'good morning | доброе утро',
+'good morning | доброе утро; добрый день',
 'good evening | добрый вечер',
 'how are you? | как дела?',
 'my name is Ana | меня зовут Ана',
@@ -146,44 +146,19 @@ const DEMO_DECK = [
 'see you later | до скорого',
 'a coffee | кофе',
 'the bill | счёт (в кафе)',
-'',
-'front: |',
-'  Good morning, how are you?',
-'back: |',
-'  Добрый день, как дела?',
-'hint: формальное приветствие',
-'tags: приветствия',
-'',
-'front: |',
-'  See you tomorrow!',
-'back: |',
-'  До завтра!',
-'hint: говорится при прощании',
-'tags: приветствия',
+'Good morning, how are you? | Добрый день, как дела? | формальное приветствие | приветствия',
+'See you tomorrow! | До завтра! | говорится при прощании | приветствия',
 '',
 '# Задания',
 '',
-'prompt: |',
-'  Привет, как дела?',
-'answer: |',
-'  Hello! How are you?',
-'alt: Hi! How are you?; How are you doing?',
-'hint: неформальное приветствие',
-'tags: приветствия',
+'Привет, как дела?; Здравствуйте, как ты?; Как ты поживаешь? | Hello! How are you?; Hi! How are you?; How are you doing? | неформальное приветствие | приветствия',
+'Добрый день, как дела? | Good morning, how are you? | до полудня — good morning | приветствия',
 '',
-'prompt: |',
-'  Меня зовут Ана.',
-'answer: |',
-'  My name is Ana',
-'alt: I am Ana',
+'prompt: Меня зовут Ана.',
+'alt1: Моё имя — Ана',
+'answer: My name is Ana',
+'alt2: I am Ana',
 'tags: знакомство',
-'',
-'prompt: |',
-'  Добрый день, как дела?',
-'answer: |',
-'  Good morning, how are you?',
-'hint: до полудня — good morning',
-'tags: приветствия',
 '',
 'prompt: |',
 '  Один кофе, пожалуйста.',
@@ -213,6 +188,7 @@ ru:{
   added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
   settingsTitle:'Настройки', autoplay:'Автовоспроизведение аудио при показе карточки',
   fontSize:'Размер шрифта',
+  variants:'Варианты:',
   exportProgress:'Экспортировать прогресс', importProgress:'Импортировать прогресс',
   resetProgress:'Сбросить весь прогресс', confirmReset:'Точно сбросить весь прогресс?',
   progressCleared:'Прогресс сброшен', imported:'Прогресс импортирован', invalidFile:'Некорректный файл прогресса',
@@ -249,6 +225,7 @@ en:{
   added:'Deck added', updated:'Updated', saved:'Saved',
   settingsTitle:'Settings', autoplay:'Autoplay audio when a card is shown',
   fontSize:'Font size',
+  variants:'Variants:',
   exportProgress:'Export progress', importProgress:'Import progress',
   resetProgress:'Reset all progress', confirmReset:'Really reset all progress?',
   progressCleared:'Progress cleared', imported:'Progress imported', invalidFile:'Invalid progress file',
@@ -321,7 +298,7 @@ function extractFrontmatter(text){
   }
   return { meta, body: lines.slice(end+1).join('\n') };
 }
-const FIELD_KEYS=['front','back','prompt','answer','alt','hint','audio','tags','id','direction','reverse'];
+const FIELD_KEYS=['front','back','prompt','answer','alt','alt1','alt2','hint','audio','tags','id','direction','reverse'];
 const FIELD_RE=new RegExp('^\\s*('+FIELD_KEYS.join('|')+')\\s*:\\s*(.*)$','i');
 function splitPipes(joined){
   for(let i=0;i<joined.length-2;i++){
@@ -332,6 +309,46 @@ function splitPipes(joined){
   return null;
 }
 function unesc(s){ return s.replace(/\\\|/g,'|'); }
+// однострочная запись: все вхождения « | » (с учётом экранирования \|) → массив полей
+function splitAllPipes(s){
+  const parts=[]; let rest=String(s||'');
+  for(;;){
+    const sp=splitPipes(rest);
+    if(!sp){ parts.push(rest); break; }
+    parts.push(sp[0]); rest=sp[1];
+  }
+  return parts.map(x=>x.trim());
+}
+// «;» в однострочном поле = варианты; первое значение — каноничное
+function splitVariants(v){
+  const ps=String(v||'').split(';').map(s=>s.trim()).filter(Boolean);
+  return { main: ps[0]||'', alts: ps.slice(1) };
+}
+function looksLikeRecord(line){
+  if(/\t/.test(line)) return true;
+  return splitAllPipes(line).length>=2;
+}
+// однострочная запись → карточка/задание; parts: [сторона1, сторона2, hint?, tags?]
+function recordFromParts(parts, section, warnings, src){
+  const clip=s=>String(s).slice(0,40)+(s.length>40?'…':'');
+  if(parts.length<2 || !parts[0] || !parts[1]){
+    if(section==='tasks') warnings.push('Задание без поля answer пропущено: «'+clip(src)+'»');
+    else warnings.push('Строка без « | » пропущена: «'+clip(src)+'»');
+    return null;
+  }
+  const v1=splitVariants(unesc(parts[0])), v2=splitVariants(unesc(parts[1]));
+  // без заголовка секции: 2 поля — флеш-карта, 3+ — задание; секция задаёт тип жёстко
+  const type = section==='tasks' ? 'task' : (section==='cards' ? 'card' : (parts.length>=3 ? 'task' : 'card'));
+  const c={ type, audio:[], tags: parts[3]?parseTags([parts[3]]):[], alts:v2.alts };
+  if(v1.alts.length) c.alt1=v1.alts;
+  if(parts[2]) c.hint=parts[2];
+  if(type==='card'){ c.front=v1.main; c.back=v2.main; }
+  else {
+    c.prompt=v1.main; c.answer=v2.main;
+    if(!c.answer.trim()){ warnings.push('Задание с пустым answer пропущено: «'+clip(src)+'»'); return null; }
+  }
+  return finalizeCard(c);
+}
 function parseTags(arr){
   return (arr||[]).join(',').split(/[,;]/).map(s=>s.trim()).filter(Boolean);
 }
@@ -355,62 +372,66 @@ function parseBlockLines(rawLines, section, warnings){
   const lines=rawLines.slice();
   while(lines.length && !lines[0].trim()) lines.shift();
   while(lines.length && !lines[lines.length-1].trim()) lines.pop();
-  if(!lines.length) return null;
-  const fields=[]; let hasField=false; const stray=[]; const strays=[];
+  if(!lines.length) return [];
+  const out=[]; const fields=[]; let hasField=false;
+  // завершить накопленный блочный разбор: собрать карточку из полей
+  const flush=()=>{
+    if(!fields.length) return;
+    const obj={};
+    for(const f of fields){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
+    const g=k=>obj[k]&&obj[k][0];
+    const reset=()=>{ fields.length=0; hasField=false; };
+    const c={ audio:(obj.audio||[]).filter(Boolean),
+              alts:(obj.alt||[]).concat(obj.alt2||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
+              alt1:(obj.alt1||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
+              tags:parseTags(obj.tags) };
+    if(obj.hint) c.hint=g('hint');
+    if(obj.id) c.id=String(g('id')).trim();
+    if(obj.direction){ const d=String(g('direction')).trim().toLowerCase(); c.direction=['l2l1','l1l2','both'].includes(d)?d:'both'; }
+    if(obj.reverse){ const r=String(g('reverse')).trim().toLowerCase(); c.reverse=(r==='true'||r==='yes'); }
+    if(g('answer')!==undefined){
+      c.type='task'; c.prompt=g('prompt')||''; c.answer=g('answer')||'';
+      if(!c.answer.trim()){ warnings.push('Задание с пустым answer пропущено'); reset(); return; }
+      if(!c.prompt.trim() && !c.audio.length) warnings.push('Задание без prompt и без audio пропущено');
+    } else if(g('front')!==undefined){
+      c.type='card'; c.front=g('front')||''; c.back=g('back')||'';
+    } else {
+      warnings.push('Блок без front/prompt пропущен'); reset(); return;
+    }
+    out.push(finalizeCard(c)); reset();
+  };
   for(const line of lines){
     const m=line.match(FIELD_RE);
-    if(m){ hasField=true; fields.push({key:m[1].toLowerCase(), val:m[2], lines:[]}); }
-    else if(hasField && fields.length){ fields[fields.length-1].lines.push(line); }
-    else if(line.trim()){ stray.push(line); }
-  }
-  if(!hasField){
-    // каждая строка с « | » — отдельная короткая карточка; строки без « | » пропускаем с замечанием
-    const cards=[];
-    for(const line of lines){
-      const s=line.trim();
-      if(!s) continue;
-      const sp=splitPipes(s);
-      if(sp){ cards.push({ type:'card', front:unesc(sp[0].trim()), back:unesc(sp[1].trim()), audio:[], tags:[], alts:[] }); continue; }
-      if(section==='tasks') warnings.push('Задание без поля answer пропущено: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
-      else warnings.push('Строка без « | » пропущена: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+    if(m){ hasField=true; fields.push({key:m[1].toLowerCase(), val:m[2], lines:[]}); continue; }
+    const s=line.trim();
+    if(!s) continue;
+    // однострочная запись начинается с края строки и содержит « | » или Tab;
+    // такие строки завершают накопленный блок и разбираются сами по себе
+    if(!/^\s/.test(line) && looksLikeRecord(line)){
+      flush();
+      const parts=/\t/.test(line) ? line.split('\t').map(x=>x.trim()) : splitAllPipes(line);
+      const rec=recordFromParts(parts, section, warnings, s);
+      if(rec) out.push(rec);
+      continue;
     }
-    if(cards.length===0) return null;
-    return cards.length===1 ? cards[0] : cards;
+    if(hasField && fields.length){ fields[fields.length-1].lines.push(line); continue; }
+    warnings.push('Строки вне полей пропущены: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
   }
-  if(stray.length){
-    // строки до первого поля: строка с « | » — короткая карточка, остальное — замечание
-    for(const line of stray){
-      const s=line.trim(); if(!s) continue;
-      const sp=splitPipes(s);
-      if(sp){ strays.push({ type:'card', front:unesc(sp[0].trim()), back:unesc(sp[1].trim()), audio:[], tags:[], alts:[] }); continue; }
-      warnings.push('Строки вне полей пропущены: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
-    }
-  }
-  const obj={};
-  for(const f of fields){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
-  const g=k=>obj[k]&&obj[k][0];
-  const card={ audio:(obj.audio||[]).filter(Boolean), alts:(obj.alt||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean), tags:parseTags(obj.tags) };
-  if(obj.hint) card.hint=g('hint');
-  if(obj.id) card.id=String(g('id')).trim();
-  if(obj.direction){ const d=String(g('direction')).trim().toLowerCase(); card.direction=['l2l1','l1l2','both'].includes(d)?d:'both'; }
-  if(obj.reverse){ const r=String(g('reverse')).trim().toLowerCase(); card.reverse=(r==='true'||r==='yes'); }
-  if(g('answer')!==undefined){
-    card.type='task'; card.prompt=g('prompt')||''; card.answer=g('answer')||'';
-    if(!card.answer.trim()){ warnings.push('Задание с пустым answer пропущено'); return null; }
-    if(!card.prompt.trim() && !card.audio.length) warnings.push('Задание без prompt и без audio пропущено');
-  } else if(g('front')!==undefined){
-    card.type='card'; card.front=g('front')||''; card.back=g('back')||'';
-  } else {
-    warnings.push('Блок без front/prompt пропущен');
-    return null;
-  }
-  if(strays.length) return strays.concat([card]);
-  return card;
+  flush();
+  return out;
 }
 function finalizeCard(c){
   const base = c.type==='card' ? ('card|'+c.front) : ('task|'+c.prompt+'|'+c.answer);
   if(!c.id) c.id=fnv(base);
-  if(c.type==='task' && c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.answer));
+  if(c.type==='card'){
+    if(c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.back));
+    if(c.alt1) c.alt1=c.alt1.filter(a=>normalizeText(a)!==normalizeText(c.front));
+  } else {
+    if(c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.answer));
+    if(c.alt1) c.alt1=c.alt1.filter(a=>normalizeText(a)!==normalizeText(c.prompt));
+  }
+  if(c.alt1 && !c.alt1.length) delete c.alt1;
+  if(c.alts && !c.alts.length) delete c.alts;
   return c;
 }
 function makeDeck(meta, cards, warnings, filename){
@@ -461,11 +482,11 @@ function parseTsv(text, filename){
   for(const line of text.split('\n')){
     if(!line.trim() || /^\s*#/.test(line)) continue;
     const cols=line.split('\t').map(c=>c.trim());
+    const c1=splitVariants(cols[0]), c2=splitVariants(cols[1]);
     if(cols.length>=3){
-      const parts=cols[1].split(';').map(s=>s.trim()).filter(Boolean);
-      cards.push(finalizeCard({ type:'task', prompt:cols[0], answer:parts[0]||'', alts:parts.slice(1), audio:[], tags:parseTags([cols[2]]) }));
+      cards.push(finalizeCard({ type:'task', prompt:c1.main, answer:c2.main, alt1:c1.alts, alts:c2.alts, audio:[], tags:parseTags([cols[2]]) }));
     } else if(cols.length>=2){
-      cards.push(finalizeCard({ type:'card', front:cols[0], back:cols[1], audio:[], tags:[], alts:[] }));
+      cards.push(finalizeCard({ type:'card', front:c1.main, back:c2.main, alt1:c1.alts, alts:c2.alts, audio:[], tags:[] }));
     } else {
       warnings.push('Строка без Tab-разделителя пропущена: «'+line.trim().slice(0,40)+'…»');
     }
@@ -865,6 +886,9 @@ function gradeRowHtml(){
 }
 function cardStageHtml(ex, a, b){
   const flipped=S.flipped;
+  // варианты принадлежат своей стороне: сторона 1 → alt1, сторона 2 → alts
+  const face1=(ex.dir==='l2l1') ? !flipped : flipped;
+  const variants=((face1?ex.card.alt1:ex.card.alts)||[]);
   const hintBtn=(!flipped && ex.card.hint)
     ? `<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="hint">${esc(t('hint'))}</button></div>`:'';
   const hintLine=(S.showHint && ex.card.hint)
@@ -873,6 +897,7 @@ function cardStageHtml(ex, a, b){
     <div class="tapholder" data-act="flip-card">
       <div class="side-label">${flipped?esc(t('sideB')):esc(t('sideA'))}</div>
       <div>${rich(flipped?b:a, ex)}</div>
+      ${variants.length?`<div class="alts">${esc(t('variants'))} ${esc(variants.join('; '))}</div>`:''}
       ${!flipped?`<div class="flip-hint">${esc(t('tapToFlip'))}</div>`:''}
     </div>
     ${audioRowHtml(ex)}
@@ -884,7 +909,8 @@ function taskStageHtml(ex, a, b){
   const revealed=S.revealed;
   let after='';
   if(revealed){
-    const alts=ex.card.alts||[];
+    // варианты вводимой стороны: ru→en (l1l2) — alt2 (alts), en→ru (l2l1) — alt1
+    const alts=((ex.dir==='l1l2'?ex.card.alts:ex.card.alt1)||[]);
     const exact=isExact(b, S.typed, alts);
     const diff=diffTokens(b, S.typed).map(x=>`<span class="${x.ok?'diff-ok':'diff-no'}">${esc(x.t)}</span>`).join(' ');
     after=`<div class="answer-box">
@@ -958,18 +984,23 @@ function instrSections(){
     <h3>Шапка колоды</h3>
     <p>Необязательный YAML-блок в начале файла задаёт название и языки:</p>
     ${codebox(['---','title: Английский A1 — Урок 1','lang: en        # изучаемый язык','base: ru        # язык переводов','reverse: true   # карточки показывать в обе стороны','description: Описание для себя','---',''].join('\n'))}
-    <h3>Флеш-карты</h3>
-    <p>Короткие карточки пишутся одной строкой: сторона A, затем <b> | </b>, затем сторона B. Если вертикальная черта нужна внутри текста — экранируйте её обратным слэшем (\\|). Длинные фразы и дополнительные поля пишутся блоком:</p>
-    ${codebox(['hello | привет','how are you? | как дела?','![](img/dog.jpg) **dog** | собака','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','hint: формальное приветствие','audio: audio/good-morning.mp3','tags: приветствия, формальное',''].join('\n'))}
-    <h3>Задания (ввод перевода)</h3>
-    <p>Блок с полями prompt (что показываем) и answer (что нужно написать). Проверка — самооценка: сайт показывает эталон с подсветкой отличий. Кнопка «Подсказка» открывает по одной случайной букве ответа; кнопка ⇄ меняет направление задания прямо в сессии.</p>
-    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  Hello! How are you?','alt: Hi! How are you?; How are you doing?','hint: неформальное приветствие','tags: приветствия',''].join('\n'))}
+    <h3>Секции: # Карточки и # Задания</h3>
+    <p>Заголовок <b># Карточки</b> включает секцию флеш-карт, <b># Задания</b> — секцию заданий с вводом ответа. Строки <b>---</b> и пустые строки — просто визуальные разделители, можно обойтись без них; обычные заголовки (например, названия уроков) разбору не мешают. Если секционных заголовков нет вовсе, работает старый синтаксис: строка из двух полей — флеш-карта, из трёх и более — задание.</p>
+    <h3>Однострочные записи</h3>
+    <p>Запись — одна строка, поля через <b> | </b>: сторона 1, сторона 2, затем необязательные подсказка и теги. Точка с запятой внутри первых двух полей перечисляет <b>варианты</b>: первое значение — основной текст, остальные — тоже засчитываемые. Литеральную « | » экранируйте: <code>\\|</code>.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | говорится при прощании | приветствия','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | неформальное приветствие | приветствия',''].join('\n'))}
+    <p>В задании варианты относятся к своей стороне: вводите сторону 2 — засчитываются её текст и варианты; нажали ⇄ и вводите сторону 1 — её текст и варианты. На карточках варианты показаны строкой «Варианты: …», в заданиях после показа ответа — «Тоже верно: …».</p>
+    <h3>Блочные записи</h3>
+    <p>Длинные фразы, картинки и аудио пишутся блоком с полями. <b>alt1</b> — варианты стороны 1, <b>alt2</b> — варианты стороны 2; прежнее поле <b>alt</b> по-прежнему работает как alt2. В блочных prompt/answer точка с запятой — часть текста (не разделяется): если текст содержит «;» или « | », пишите блоком.</p>
+    ${codebox(['prompt: Меня зовут Ана.','alt1: Моё имя — Ана','answer: My name is Ana','alt2: I am Ana','tags: знакомство','','prompt: |','  Один кофе, пожалуйста.','answer: |','  A coffee, please','alt: One coffee, please','tags: кафе',''].join('\n'))}
     <h3>Все поля</h3>
     <div class="tablewrap"><table>
       <tr><th>Поле</th><th>Где</th><th>Что делает</th></tr>
       <tr><td>front / back</td><td>карточка</td><td>сторона A и сторона B</td></tr>
       <tr><td>prompt / answer</td><td>задание</td><td>что показываем и что нужно ввести</td></tr>
-      <tr><td>alt</td><td>задание</td><td>допустимые варианты ответа через «;»</td></tr>
+      <tr><td>alt1</td><td>обе</td><td>варианты стороны 1 (принимаются при вводе стороны 1, после ⇄)</td></tr>
+      <tr><td>alt2</td><td>обе</td><td>варианты стороны 2 (принимаются при вводе стороны 2)</td></tr>
+      <tr><td>alt</td><td>задание</td><td>старое имя для alt2 — сохранить совместимость</td></tr>
       <tr><td>hint</td><td>обе</td><td>текст подсказки (кнопка «Подсказка»)</td></tr>
       <tr><td>audio</td><td>обе</td><td>путь или ссылка на mp3/ogg/m4a/wav; можно несколько полей — плейлист</td></tr>
       <tr><td>tags</td><td>обе</td><td>теги через запятую — фильтр при старте сессии</td></tr>
@@ -978,7 +1009,7 @@ function instrSections(){
       <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление</td></tr>
     </table></div>
     <h3>Правила разбора</h3>
-    <p>• Карточки разделяются строкой <b>---</b> или пустой строкой перед новым <b>front:</b>/<b>prompt:</b>; короткие карточки идут по одной на строку.<br>• Заголовки <b># Карточки</b> и <b># Задания</b> переключают тип последующих блоков.<br>• Без заголовков тип определяется автоматически: блок с answer — задание, строка с « | » — флеш-карта.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+    <p>• Однострочная запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Блочная запись начинается строкой с полем (prompt:, front:…) и продолжается до пустой строки, «---», заголовка или следующей однострочной записи.<br>• В однострочных записях «;» разделяет варианты (первое значение — основное); в блочных prompt/answer «;» — часть текста.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
   {id:'txt', title:'Файлы .txt (таблица)', html:`
     <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
     ${codebox('# комментарий\nhello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tприветствия\n')}`},
@@ -1022,7 +1053,7 @@ function instrSections(){
     <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
     <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
     <p><b>Задание спрашивает не в ту сторону.</b> Нажмите ⇄ в сессии или задайте direction в файле.</p>
-    <p><b>Внутри ответа есть «;» или « | ».</b> В заданиях «;» разделяет варианты alt — для текста с «;» перечислите варианты отдельными полями alt. Во флеш-картах экранируйте черту: \\|.</p>`}
+    <p><b>Внутри текста есть «;» или « | ».</b> В однострочных записях «;» разделяет варианты, а « | » — поля: экранируйте черту (\\|), а текст с «;» пишите блочной формой — там «;» остаётся частью текста, варианты перечисляются в alt1/alt2.</p>`}
   ];
 }
 function instrSectionsEn(){
@@ -1035,18 +1066,23 @@ function instrSectionsEn(){
     <h3>Deck header</h3>
     <p>An optional YAML block at the top sets the title and languages:</p>
     ${codebox(['---','title: English A1 — Lesson 1','lang: en        # target language','base: ru        # translation language','reverse: true   # show cards in both directions','---',''].join('\n'))}
-    <h3>Flashcards</h3>
-    <p>Short cards are one line: side A, then <b> | </b>, then side B. Escape a literal bar as \\|. Long phrases and extra fields use the block form:</p>
-    ${codebox(['hello | привет','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','hint: formal greeting','audio: audio/good-morning.mp3','tags: greetings',''].join('\n'))}
-    <h3>Typing tasks</h3>
-    <p>A block with prompt (shown) and answer (to type). Grading is self-assessed: the site shows the reference with a word diff. The Hint button reveals random letters one by one; ⇄ flips the task direction on the fly.</p>
-    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  Hello! How are you?','alt: Hi! How are you?','tags: greetings',''].join('\n'))}
+    <h3>Sections: # Cards and # Tasks</h3>
+    <p>The heading <b># Карточки</b> (cards) starts the flashcard section, <b># Задания</b> (tasks) — the typing-task section. Lines of <b>---</b> and blank lines are optional visual separators; ordinary headings do not affect parsing. Without section headings the legacy syntax applies: a two-field line is a flashcard, three or more fields make a task.</p>
+    <h3>One-line records</h3>
+    <p>A record is one line with fields separated by <b> | </b>: side 1, side 2, then optional hint and tags. A semicolon inside the first two fields lists <b>alternatives</b>: the first value is the main text, the rest are also accepted. Escape a literal bar as <code>\\|</code>.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | said when parting | greetings','','# Задания','Привет, как дела? | Hello! How are you?; Hi! How are you? | informal greeting | greetings',''].join('\n'))}
+    <p>Alternatives belong to their side: typing side 2 accepts its text and alternatives; press ⇄ to type side 1 — its text and alternatives are accepted. On flashcards alternatives are shown as "Variants: …", in tasks as "Also correct: …".</p>
+    <h3>Block records</h3>
+    <p>Long phrases, images and audio use the block form. <b>alt1</b> — alternatives of side 1, <b>alt2</b> — alternatives of side 2; the older <b>alt</b> still works as alt2. Inside block prompt/answer a semicolon is plain text (never split): if your text contains ";" or " | ", write it as a block.</p>
+    ${codebox(['prompt: Меня зовут Ана.','alt1: Моё имя — Ана','answer: My name is Ana','alt2: I am Ana','tags: greetings','','prompt: |','  Один кофе, пожалуйста.','answer: |','  A coffee, please','alt: One coffee, please','tags: cafe',''].join('\n'))}
     <h3>Fields</h3>
     <div class="tablewrap"><table>
       <tr><th>Field</th><th>Applies to</th><th>Meaning</th></tr>
       <tr><td>front / back</td><td>card</td><td>side A and side B</td></tr>
       <tr><td>prompt / answer</td><td>task</td><td>shown prompt and expected answer</td></tr>
-      <tr><td>alt</td><td>task</td><td>accepted alternatives, separated by ";"</td></tr>
+      <tr><td>alt1</td><td>both</td><td>side-1 alternatives (accepted when typing side 1, after ⇄)</td></tr>
+      <tr><td>alt2</td><td>both</td><td>side-2 alternatives (accepted when typing side 2)</td></tr>
+      <tr><td>alt</td><td>task</td><td>legacy alias for alt2</td></tr>
       <tr><td>hint</td><td>both</td><td>hint text</td></tr>
       <tr><td>audio</td><td>both</td><td>audio path or URL; repeat for a playlist</td></tr>
       <tr><td>tags</td><td>both</td><td>comma-separated tags for session filters</td></tr>
@@ -1055,7 +1091,7 @@ function instrSectionsEn(){
       <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both</td></tr>
     </table></div>
     <h3>Parsing rules</h3>
-    <p>• Cards are separated by a <b>---</b> line, or by a blank line before a new <b>front:</b>/<b>prompt:</b>; one-line shorthand cards need no separator.<br>• Headings <b># Карточки</b> / <b># Задания</b> (cards / tasks) switch the block type.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+    <p>• A one-line record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• A block record starts at a field line (prompt:, front:…) and runs until a blank line, "---", a heading, or the next one-line record.<br>• In one-line records ";" splits alternatives (first value is the main one); in block prompt/answer ";" is plain text.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
   {id:'txt', title:'Plain .txt (TSV)', html:`
     <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
     ${codebox('hello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tgreetings\n')}`},
@@ -1085,7 +1121,8 @@ function instrSectionsEn(){
     <p><b>Images of a local deck disappeared after reload.</b> Device media lives for one session; the text is kept. Put decks on GitHub for permanent images.</p>
     <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
     <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
-    <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>`}
+    <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>
+    <p><b>The text contains ";" or " | ".</b> In one-line records ";" splits alternatives and " | " separates fields: escape the bar (\\|); text with ";" should use the block form — there ";" stays plain text and alternatives go to alt1/alt2.</p>`}
   ];
 }
 function instructionView(){

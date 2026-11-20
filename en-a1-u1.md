@@ -14,7 +14,7 @@ thank you | спасибо
 please | пожалуйста
 yes | да
 no | нет
-good morning | доброе утро
+good morning | доброе утро; добрый день
 good evening | добрый вечер
 how are you? | как дела?
 my name is Ana | меня зовут Ана
@@ -22,6 +22,7 @@ nice to meet you | очень приятно
 see you later | до скорого
 a coffee | кофе
 the bill | счёт (в кафе)
+See you tomorrow! | До завтра! | говорится при прощании | приветствия
 
 front: |
   Good morning, how are you?
@@ -31,36 +32,16 @@ hint: формальное приветствие
 audio: audio/good-morning.mp3
 tags: приветствия
 
-front: |
-  See you tomorrow!
-back: |
-  До завтра!
-hint: говорится при прощании
-tags: приветствия
-
 # Задания
 
-prompt: |
-  Привет, как дела?
-answer: |
-  Hello! How are you?
-alt: Hi! How are you?; How are you doing?
-hint: неформальное приветствие
-tags: приветствия
+Привет, как дела?; Здравствуйте, как ты?; Как ты поживаешь? | Hello! How are you?; Hi! How are you?; How are you doing? | неформальное приветствие | приветствия
+Добрый день, как дела? | Good morning, how are you? | до полудня — good morning | приветствия
 
-prompt: |
-  Меня зовут Ана.
-answer: |
-  My name is Ana
-alt: I am Ana
+prompt: Меня зовут Ана.
+alt1: Моё имя — Ана
+answer: My name is Ana
+alt2: I am Ana
 tags: знакомство
-
-prompt: |
-  Добрый день, как дела?
-answer: |
-  Good morning, how are you?
-hint: до полудня — good morning
-tags: приветствия
 
 prompt: |
   Один кофе, пожалуйста.
