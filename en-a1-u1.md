@@ -24,11 +24,7 @@ see you later | до скорого
 a coffee | кофе
 the bill | счёт (в кафе)
 See you tomorrow! | До завтра! | говорится при прощании | приветствия
-
-front: |
-  Good morning, how are you?
-back: |
-  Добрый день, как дела?
+Good morning, how are you? | Добрый день, как дела?
 hint: формальное приветствие
 audio: audio/good-morning.mp3
 tags: приветствия
@@ -37,16 +33,12 @@ tags: приветствия
 
 Привет, как дела?; Здравствуйте, как ты?; Как ты поживаешь? | Hello! How are you?; Hi! How are you?; How are you doing? | неформальное приветствие | приветствия
 Добрый день, как дела? | Good morning, how are you? | до полудня — good morning | приветствия
-
-prompt: Меня зовут Ана.
-alt1: Моё имя — Ана
-answer: My name is Ana
-alt2: I am Ana
+Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana
 tags: знакомство
-
-prompt: |
-  Один кофе, пожалуйста.
-answer: |
-  A coffee, please
-alt: One coffee, please
+Один кофе, пожалуйста. | A coffee, please; One coffee, please
 tags: кафе
+
+# Аудио
+
+audio: audio/good-morning.mp3 | Добрый день, как дела?
+audio2: audio/dobryj-den-kak-dela.mp3 | Good morning, how are you?

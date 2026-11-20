@@ -69,6 +69,7 @@ select.sel.sel-inline{width:auto;min-width:64px;padding:.28rem .45rem;font-size:
 .stage{position:relative}
 .tapholder{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 20px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:1.3rem;line-height:1.45;word-break:break-word}
 .tapholder.small{font-size:1.05rem;cursor:default;align-items:stretch;text-align:left}
+.audio-big{font-size:2.6rem;line-height:1;text-align:center;margin-top:4px}
 .side-label{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
 .flip-hint{color:var(--muted);font-size:.8rem;margin-top:14px}
 .card-img{max-width:100%;height:auto;max-height:170px;border-radius:10px;margin:.5rem 0}
@@ -154,18 +155,10 @@ const DEMO_DECK = [
 '',
 'Привет, как дела?; Здравствуйте, как ты?; Как ты поживаешь? | Hello! How are you?; Hi! How are you?; How are you doing? | неформальное приветствие | приветствия',
 'Добрый день, как дела? | Good morning, how are you? | до полудня — good morning | приветствия',
-'',
-'prompt: Меня зовут Ана.',
-'alt1: Моё имя — Ана',
-'answer: My name is Ana',
-'alt2: I am Ana',
+'Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana',
 'tags: знакомство',
 '',
-'prompt: |',
-'  Один кофе, пожалуйста.',
-'answer: |',
-'  A coffee, please',
-'alt: One coffee, please',
+'Один кофе, пожалуйста. | A coffee, please; One coffee, please',
 'tags: кафе',
 '',
 ].join('\n');
@@ -197,11 +190,11 @@ ru:{
   direction:'Направление', dirMixed:'Смешанно', dirL1L2:'Родной → изучаемый', dirL2L1:'Изучаемый → родной',
   onlyMistakes:'Повторить только ошибки', tagsFilter:'Теги (необязательно)',
   size:'Сколько карточек за сессию (пусто — все)', start:'Начать', cancel:'Отмена',
-  exit:'Выйти', showAnswer:'Показать ответ', hint:'Подсказка', flipDir:'Сменить направление',
+  exit:'Выйти', showAnswer:'Показать ответ', hint:'Подсказка', flipDir:'Сменить направление', dirFixed:'Направление этого задания зафиксировано в файле',
   knew:'Знал', missed:'Не знал',
   sideA:'Сторона A', sideB:'Сторона B', tapToFlip:'Нажмите, чтобы перевернуть',
   prompt:'Задание', answer:'Ответ', typeHere:'Введите перевод…',
-  hintField:'Подсказка:', hintAllShown:'Открыты все буквы', audio:'Аудио', audioFail:'Аудио недоступно',
+  hintField:'Подсказка:', hintAllShown:'Открыты все буквы', audio:'Аудио', audioFail:'Аудио недоступно', audioBlocked:'Браузер запретил звук — кликните по странице и попробуйте ещё раз', listenPrompt:'Прослушайте и напишите, что услышали',
   exact:'Совпадает с эталоном', alsoCorrect:'Тоже верно:', yourAnswer:'Ваш ответ:',
   done:'Сессия завершена', doneHints:'Подсказок', repeatMistakes:'Повторить ошибки', toHome:'На главную',
   noCards:'Под эти настройки не нашлось ни одной карточки', noMistakes:'Ошибок нет — тренируйтесь дальше!',
@@ -234,11 +227,11 @@ en:{
   direction:'Direction', dirMixed:'Mixed', dirL1L2:'Native → target', dirL2L1:'Target → native',
   onlyMistakes:'Repeat mistakes only', tagsFilter:'Tags (optional)',
   size:'Cards per session (empty — all)', start:'Start', cancel:'Cancel',
-  exit:'Exit', showAnswer:'Show answer', hint:'Hint', flipDir:'Flip direction',
+  exit:'Exit', showAnswer:'Show answer', hint:'Hint', flipDir:'Flip direction', dirFixed:'This task direction is fixed in the file',
   knew:'Knew it', missed:'Missed it',
   sideA:'Side A', sideB:'Side B', tapToFlip:'Tap to flip',
   prompt:'Prompt', answer:'Answer', typeHere:'Type the translation…',
-  hintField:'Hint:', hintAllShown:'All letters revealed', audio:'Audio', audioFail:'Audio unavailable',
+  hintField:'Hint:', hintAllShown:'All letters revealed', audio:'Audio', audioFail:'Audio unavailable', audioBlocked:'The browser blocked sound — click the page and try again', listenPrompt:'Listen and type what you hear',
   exact:'Matches the reference', alsoCorrect:'Also correct:', yourAnswer:'Your answer:',
   done:'Session complete', doneHints:'Hints', repeatMistakes:'Repeat mistakes', toHome:'Home',
   noCards:'No cards match these settings', noMistakes:'No mistakes yet — keep going!',
@@ -299,7 +292,9 @@ function extractFrontmatter(text){
   }
   return { meta, body: lines.slice(end+1).join('\n') };
 }
-const FIELD_KEYS=['front','back','prompt','answer','alt1','alt2','alt','hint','audio1','audio2','audio','tags','id','direction','reverse'];
+// единственный стиль записи: строка с полями через « | » (или Tab) + строки-модификаторы под ней.
+// Экранирование в тексте: \| — литеральная черта, \; — литеральная точка с запятой.
+const FIELD_KEYS=['hint','audio1','audio2','audio','tags','id','direction','reverse'];
 const FIELD_RE=new RegExp('^\\s*('+FIELD_KEYS.join('|')+')\\s*:\\s*(.*)$','i');
 function splitPipes(joined){
   for(let i=0;i<joined.length-2;i++){
@@ -309,7 +304,7 @@ function splitPipes(joined){
   }
   return null;
 }
-function unesc(s){ return s.replace(/\\\|/g,'|'); }
+function unesc(s){ return String(s||'').replace(/\\\|/g,'|').replace(/\\;/g,';'); }
 // однострочная запись: все вхождения « | » (с учётом экранирования \|) → массив полей
 function splitAllPipes(s){
   const parts=[]; let rest=String(s||'');
@@ -320,9 +315,9 @@ function splitAllPipes(s){
   }
   return parts.map(x=>x.trim());
 }
-// «;» в однострочном поле = варианты; первое значение — каноничное
+// «;» в однострочном поле = варианты (первое значение каноничное); \; — литеральная «;»
 function splitVariants(v){
-  const ps=String(v||'').split(';').map(s=>s.trim()).filter(Boolean);
+  const ps=String(v||'').split(/(?<!\\);/).map(s=>unesc(s).trim()).filter(Boolean);
   return { main: ps[0]||'', alts: ps.slice(1) };
 }
 function looksLikeRecord(line){
@@ -333,16 +328,17 @@ function looksLikeRecord(line){
 function recordFromParts(parts, section, warnings, src){
   const clip=s=>String(s).slice(0,40)+(s.length>40?'…':'');
   if(parts.length<2 || !parts[0] || !parts[1]){
-    if(section==='tasks') warnings.push('Задание без поля answer пропущено: «'+clip(src)+'»');
+    if(section==='tasks'||section==='audio') warnings.push('Задание без поля answer пропущено: «'+clip(src)+'»');
     else warnings.push('Строка без « | » пропущена: «'+clip(src)+'»');
     return null;
   }
-  const v1=splitVariants(unesc(parts[0])), v2=splitVariants(unesc(parts[1]));
-  // без заголовка секции: 2 поля — флеш-карта, 3+ — задание; секция задаёт тип жёстко
-  const type = section==='tasks' ? 'task' : (section==='cards' ? 'card' : (parts.length>=3 ? 'task' : 'card'));
-  const c={ type, audio:[], tags: parts[3]?parseTags([parts[3]]):[], alts:v2.alts };
+  const v1=splitVariants(parts[0]), v2=splitVariants(parts[1]);
+  // секция задаёт тип жёстко; без заголовка: 2 поля — флеш-карта, 3+ — задание
+  const type = (section==='tasks'||section==='audio') ? 'task'
+             : (section==='cards' ? 'card' : (parts.length>=3 ? 'task' : 'card'));
+  const c={ type, audio:[], tags: parts[3]?parseTags([unesc(parts[3])]):[], alts:v2.alts };
   if(v1.alts.length) c.alt1=v1.alts;
-  if(parts[2]) c.hint=parts[2];
+  if(parts[2]) c.hint=unesc(parts[2]);
   if(type==='card'){ c.front=v1.main; c.back=v2.main; }
   else {
     c.prompt=v1.main; c.answer=v2.main;
@@ -350,28 +346,27 @@ function recordFromParts(parts, section, warnings, src){
   }
   return finalizeCard(c);
 }
+// аудиозадание секции # Audio: «audio: путь | ответ [ | подсказка | теги]».
+// Ключ audio:/audio2: — пометка, чья это озвучка; задание всегда: слушать → вводить текст.
+function audioRecordFromParts(parts, warnings, src){
+  const clip=s=>String(s).slice(0,40)+(s.length>40?'…':'');
+  const path=unesc(parts[0]||'').trim().replace(/^["']|["']$/g,'');
+  if(parts.length<2 || !path || !parts[1]){
+    warnings.push('Аудиозадание без пути или ответа пропущено: «'+clip(src)+'»');
+    return null;
+  }
+  const v=splitVariants(parts[1]);
+  const c={ type:'task', audioTask:true, prompt:'', answer:v.main, alts:v.alts,
+            audio:[path], audio1:[], audio2:[],
+            tags:parts[3]?parseTags([unesc(parts[3])]):[], direction:'l1l2' };
+  if(parts[2]) c.hint=unesc(parts[2]);
+  if(!c.answer.trim()){ warnings.push('Аудиозадание с пустым ответом пропущено: «'+clip(src)+'»'); return null; }
+  return finalizeCard(c);
+}
 function parseTags(arr){
   return (arr||[]).join(',').split(/[,;]/).map(s=>s.trim()).filter(Boolean);
 }
-function fieldValue(f){
-  let v=f.val;
-  const blockMarker=(v===''||v==='|'||v==='|-');
-  if(blockMarker){
-    const ls=f.lines;
-    let min=-1;
-    for(const l of ls){ if(l.trim()!==''){ const ind=l.match(/^\s*/)[0].length; if(min<0||ind<min) min=ind; } }
-    if(min<0) min=0;
-    const out=ls.map(l=> min>0 && /^\s/.test(l) ? l.slice(min) : l).join('\n');
-    return out.replace(/^\n+/,'').replace(/\s+$/,'');
-  }
-  if(f.lines.length && f.lines.join('').trim()){
-    return (v+'\n'+f.lines.join('\n')).trim();
-  }
-  return v.trim();
-}
-// поля, открывающие новую блочную запись; остальные ключи — необязательные
-const RECORD_KEYS={front:1, back:1, prompt:1, answer:1};
-// необязательное поле, дописанное под уже разобранной записью, прикрепляется к ней
+// необязательное поле, дописанное строкой под записью, прикрепляется к ней
 function applyModifier(c, key, v){
   v=String(v||'').trim();
   switch(key){
@@ -379,17 +374,11 @@ function applyModifier(c, key, v){
       if(v) (c[key]=c[key]||[]).push(v);
       break;
     case 'hint':
-      if(v) c.hint=v;
+      if(v) c.hint=unesc(v);
       break;
     case 'tags':
       if(v) c.tags=c.tags.concat(parseTags([v]));
       break;
-    case 'alt': case 'alt1': case 'alt2': {
-      const ps=v.split(';').map(s=>s.trim()).filter(Boolean);
-      const kk=key==='alt1'?'alt1':'alts';
-      if(ps.length){ (c[kk]=c[kk]||[]).push(...ps); finalizeCard(c); }
-      break;
-    }
     case 'id':
       if(v) c.id=v;
       break;
@@ -402,78 +391,52 @@ function applyModifier(c, key, v){
       break;
   }
 }
-function parseBlockLines(rawLines, section, warnings){
+function parseSectionLines(rawLines, section, warnings){
   const lines=rawLines.slice();
   while(lines.length && !lines[0].trim()) lines.shift();
   while(lines.length && !lines[lines.length-1].trim()) lines.pop();
   if(!lines.length) return [];
-  const out=[]; const fields=[]; let hasField=false;
-  // завершить накопленный блочный разбор: собрать карточку из полей
-  const flush=()=>{
-    if(!fields.length) return;
-    const mods=fields.filter(f=>f.mod);
-    const norms=fields.filter(f=>!f.mod);
-    for(const f of mods) applyModifier(f.mod, f.key, fieldValue(f));
-    const reset=()=>{ fields.length=0; hasField=false; };
-    if(!norms.length){ reset(); return; }
-    const obj={};
-    for(const f of norms){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
-    const g=k=>obj[k]&&obj[k][0];
-    const c={ audio:(obj.audio||[]).filter(Boolean),
-              audio1:(obj.audio1||[]).filter(Boolean),
-              audio2:(obj.audio2||[]).filter(Boolean),
-              alts:(obj.alt||[]).concat(obj.alt2||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
-              alt1:(obj.alt1||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean),
-              tags:parseTags(obj.tags) };
-    if(obj.hint) c.hint=g('hint');
-    if(obj.id) c.id=String(g('id')).trim();
-    if(obj.direction){ const d=String(g('direction')).trim().toLowerCase(); c.direction=['l2l1','l1l2','both'].includes(d)?d:'both'; }
-    if(obj.reverse){ const r=String(g('reverse')).trim().toLowerCase(); c.reverse=(r==='true'||r==='yes'); }
-    if(g('answer')!==undefined){
-      c.type='task'; c.prompt=g('prompt')||''; c.answer=g('answer')||'';
-      if(!c.answer.trim()){ warnings.push('Задание с пустым answer пропущено'); reset(); return; }
-      if(!c.prompt.trim() && !c.audio.length && !c.audio1.length && !c.audio2.length) warnings.push('Задание без prompt и без аудио пропущено');
-    } else if(g('front')!==undefined){
-      c.type='card'; c.front=g('front')||''; c.back=g('back')||'';
-    } else {
-      warnings.push('Блок без front/prompt пропущен'); reset(); return;
-    }
-    out.push(finalizeCard(c)); reset();
-  };
+  const out=[];
   for(const line of lines){
-    const m=line.match(FIELD_RE);
-    if(m){
-      const key=m[1].toLowerCase();
-      // необязательное поле без открытого блока продолжает последнюю запись
-      // (однострочник выше или только что закрытый блок); поле записи — новый блок
-      let modTarget=null;
-      if(!RECORD_KEYS[key]){
-        if(!fields.length && out.length) modTarget=out[out.length-1];
-        else if(fields.length && fields[0].mod) modTarget=fields[0].mod;
-      }
-      hasField=true;
-      fields.push({key, val:m[2], lines:[], mod:modTarget});
-      continue;
-    }
     const s=line.trim();
     if(!s) continue;
-    // однострочная запись начинается с края строки и содержит « | » или Tab;
-    // такие строки завершают накопленный блок и разбираются сами по себе
+    const km=line.match(FIELD_RE);
+    const am=km && /^(audio1|audio2|audio)$/i.test(km[1]) && looksLikeRecord(line);
+    if(am){
+      // «audio: путь | ответ» — задание на слух; только в секции # Audio
+      if(section!=='audio'){
+        warnings.push('Строка «'+km[1].toLowerCase()+': … | …» — задание на слух, разбирается только в секции # Audio; здесь пропущена');
+        continue;
+      }
+      const rec=audioRecordFromParts(splitAllPipes(km[2]), warnings, s);
+      if(rec) out.push(rec);
+      continue;
+    }
+    if(km && !looksLikeRecord(line)){
+      // модификатор: прикрепляется к ближайшей записи выше
+      const rec=out.length?out[out.length-1]:null;
+      if(!rec){ warnings.push('Поле '+km[1].toLowerCase()+': без записи выше — строка пропущена'); continue; }
+      applyModifier(rec, km[1].toLowerCase(), km[2]);
+      continue;
+    }
+    if(km){ // известный ключ со « | » в значении — почти наверняка ошибка стиля
+      warnings.push('Поле '+km[1].toLowerCase()+': со « | » пропущено — модификатор пишется без « | », текст экранируйте \\|');
+      continue;
+    }
     if(!/^\s/.test(line) && looksLikeRecord(line)){
-      flush();
       const parts=/\t/.test(line) ? line.split('\t').map(x=>x.trim()) : splitAllPipes(line);
       const rec=recordFromParts(parts, section, warnings, s);
       if(rec) out.push(rec);
       continue;
     }
-    if(hasField && fields.length){ fields[fields.length-1].lines.push(line); continue; }
-    warnings.push('Строки вне полей пропущены: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+    warnings.push('Строка без « | » пропущена: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
   }
-  flush();
   return out;
 }
 function finalizeCard(c){
-  const base = c.type==='card' ? ('card|'+c.front) : ('task|'+c.prompt+'|'+c.answer);
+  const base = c.type==='card' ? ('card|'+c.front)
+             : c.audioTask ? ('audio|'+((c.audio&&c.audio[0])||'')+'|'+c.answer)
+             : ('task|'+c.prompt+'|'+c.answer);
   if(!c.id) c.id=fnv(base);
   if(c.type==='card'){
     if(c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.back));
@@ -485,6 +448,17 @@ function finalizeCard(c){
   if(c.alt1 && !c.alt1.length) delete c.alt1;
   if(c.alts && !c.alts.length) delete c.alts;
   return c;
+}
+// секции: флеш-карты, задания, задания на слух — имена любых регистров и языков
+const SECTION_ALIAS={
+  cards:['карточки','карточка','карты','card','cards'],
+  tasks:['задания','задание','task','tasks'],
+  audio:['аудио','audio','speech','произношение']
+};
+function sectionOf(headingText){
+  const first=String(headingText||'').toLowerCase().trim().split(/[\s:;,]+/)[0]||'';
+  for(const k in SECTION_ALIAS) if(SECTION_ALIAS[k].includes(first)) return k;
+  return null;
 }
 function makeDeck(meta, cards, warnings, filename){
   const base=(filename||'Колода').replace(/\.[^.]+$/,'');
@@ -502,29 +476,22 @@ function parseMd(text, filename){
   const fm=extractFrontmatter(text);
   let body=text, meta={};
   if(fm){ meta=fm.meta; body=fm.body; }
-  const blocks=[]; let cur=[]; let section=null; let prevBlank=false;
+  const blocks=[]; let cur=[]; let section=null;
   for(const line of body.split('\n')){
-    const h=line.match(/^\s*#\s+(.+?)\s*$/);
+    const h=line.match(/^\s*#{1,6}\s+(.+?)\s*$/);
     if(h){
       if(cur.length){ blocks.push({section, lines:cur}); cur=[]; }
-      const ht=h[1].toLowerCase();
-      if(ht==='карточки'||ht==='cards') section='cards';
-      else if(ht==='задания'||ht==='tasks') section='tasks';
+      const sec=sectionOf(h[1]);
+      if(sec) section=sec; // неизвестные заголовки секцию не меняют
       continue;
     }
-    if(/^\s*-{3,}\s*$/.test(line)){ blocks.push({section, lines:cur}); cur=[]; prevBlank=true; continue; }
-    // пустая строка + новая строка front:/prompt: = новая карточка (без обязательного ---)
-    if(prevBlank && cur.length && /^\s*(front|prompt)\s*:/i.test(line)){
-      blocks.push({section, lines:cur}); cur=[];
-    }
+    if(/^\s*-{3,}\s*$/.test(line)){ blocks.push({section, lines:cur}); cur=[]; continue; }
     cur.push(line);
-    prevBlank=!line.trim();
   }
   if(cur.length) blocks.push({section, lines:cur});
   const cards=[];
   for(const b of blocks){
-    const res=parseBlockLines(b.lines, b.section, warnings);
-    const list=Array.isArray(res)?res:(res?[res]:[]);
+    const list=parseSectionLines(b.lines, b.section, warnings);
     for(const c of list) cards.push(finalizeCard(c));
   }
   return makeDeck(meta, cards, warnings, filename);
@@ -695,12 +662,39 @@ async function fetchDeckText(id, silent){
 }
 
 /* ============================ audio ============================ */
-function playAudioUrl(src, metaId){
-  const url=resolverFor(metaId)(src);
+// путь к аудио пробуем по цепочке: blob из выбранных файлов → рядом со страницей → от URL колоды → как написано
+function audioCandidates(src, metaId){
+  const out=[]; const push=u=>{ if(u && !out.includes(u)) out.push(u); };
+  if(/^(https?:|data:|blob:)/i.test(src)){ push(src); return out; }
+  const meta=deckMetas.find(m=>m.id===metaId);
+  if(meta && meta.kind==='local'){
+    const map=localAssets[meta.id]||{};
+    const clean=src.replace(/^\.\//,'');
+    push(map[clean]); push(map[clean.split('/').pop()]);
+  }
+  try{ push(new URL(src, location.href).href); }catch(e){}
+  if(meta && meta.url){ try{ push(new URL(src, meta.url).href); }catch(e){} }
+  push(src);
+  return out;
+}
+function tryAudioCand(cands, i, src){
+  if(i>=cands.length){ toast(t('audioFail')+': '+src); return; }
+  let settled=false;
+  const next=err=>{
+    if(settled) return; settled=true;
+    if(err && err.name==='NotAllowedError'){ toast(t('audioBlocked')); return; }
+    tryAudioCand(cands, i+1, src);
+  };
   try{
-    const a=new Audio(url);
-    a.play().catch(()=>toast(t('audioFail')));
-  }catch(e){ toast(t('audioFail')); }
+    const a=new Audio(cands[i]);
+    a.addEventListener('error', ()=>next(null), {once:true});
+    const p=a.play();
+    if(p && p.then) p.then(()=>{ settled=true; }).catch(next);
+    else settled=true;
+  }catch(e){ next(null); }
+}
+function playAudioUrl(src, metaId){
+  tryAudioCand(audioCandidates(src, metaId), 0, src);
 }
 // audio/audio1 — озвучка стороны 1 (front/prompt), audio2 — стороны 2 (back/answer)
 function audio1Of(c){ return ((c.audio1||[]).concat(c.audio||[])).filter(Boolean); }
@@ -779,6 +773,7 @@ function resetExerciseState(){
 }
 function flipDir(){
   const ex=cur();
+  if(ex.card.direction && ex.card.direction!=='both'){ toast(t('dirFixed')); return; }
   const other=ex.dir==='l2l1'?'l1l2':'l2l1';
   S.dirOverrides=S.dirOverrides||{};
   S.dirOverrides[S.i]=other;
@@ -981,6 +976,8 @@ function cardStageHtml(ex, a, b){
 }
 function taskStageHtml(ex, a, b){
   const revealed=S.revealed;
+  const at=ex.card.audioTask;
+  const canFlip=!ex.card.direction || ex.card.direction==='both';
   let after='';
   if(revealed){
     // варианты вводимой стороны: ru→en (l1l2) — alt2 (alts), en→ru (l2l1) — alt1
@@ -999,18 +996,21 @@ function taskStageHtml(ex, a, b){
     ? `<div class="hintline">${esc(buildMask(b, S.revealedLetters))}</div>`:'';
   const hintText=(!revealed && ex.card.hint)
     ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
+  const promptInner=at
+    ? `<div class="audio-big">🎧</div><div class="muted" style="margin-top:8px">${esc(t('listenPrompt'))}</div>`
+    : rich(a, ex);
   return `<div class="stage">
-    <div class="tapholder small"><div class="side-label">${esc(t('prompt'))}</div><div>${rich(a, ex)}</div></div>
+    <div class="tapholder small"><div class="side-label">${esc(at?t('audio'):t('prompt'))}</div><div>${promptInner}</div></div>
     ${audioRowHtml(ex, initialFaceSide(ex))}
     ${!revealed?`
       <div style="margin-top:14px"><input type="text" id="typed" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(t('typeHere'))}" value="${esc(S.typed||'')}"></div>
       <div class="row" style="margin-top:10px">
         <button class="btn btn-primary" data-act="reveal">${esc(t('showAnswer'))}</button>
         <button class="btn" data-act="hint">${esc(t('hint'))}</button>
-        <button class="btn" data-act="flip-dir" title="${esc(t('flipDir'))}">⇄</button>
+        ${canFlip?`<button class="btn" data-act="flip-dir" title="${esc(t('flipDir'))}">⇄</button>`:''}
       </div>
       ${maskLine}${hintText}
-    `:`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="flip-dir">⇄ ${esc(t('flipDir'))}</button></div>`}
+    `:(canFlip?`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="flip-dir">⇄ ${esc(t('flipDir'))}</button></div>`:'')}
     ${after}
     ${revealed?audioRowHtml(ex, currentFaceSide(ex)):''}
   </div>`;
@@ -1055,38 +1055,33 @@ function instrSections(){
   {id:'start', title:'Быстрый старт', html:`
     <p>Три шага: создайте текстовый файл колоды → загрузите его на сайт (кнопка «Выбрать файлы») или добавьте ссылкой на GitHub → нажмите «Тренировать». Вот готовый шаблон, который можно скопировать и заменить своим материалом:</p>
     ${codebox(DEMO_DECK)}
-    <p>Файл сохраняйте в кодировке UTF-8, расширение — <b>.md</b> (полный синтаксис) или <b>.txt</b> (табличный, см. ниже).</p>`},
+    <p>Файл сохраняйте в кодировке UTF-8, расширение — <b>.md</b> или <b>.txt</b> (табличный, см. ниже).</p>`},
   {id:'format', title:'Формат базы', html:`
     <h3>Шапка колоды</h3>
     <p>Необязательный YAML-блок в начале файла задаёт название и языки:</p>
     ${codebox(['---','title: Английский A1 — Урок 1','lang: en        # изучаемый язык','base: ru        # язык переводов','reverse: true   # карточки показывать в обе стороны','description: Описание для себя','---',''].join('\n'))}
-    <h3>Секции: # Карточки и # Задания</h3>
-    <p>Заголовок <b># Карточки</b> включает секцию флеш-карт, <b># Задания</b> — секцию заданий с вводом ответа. Строки <b>---</b> и пустые строки — просто визуальные разделители, можно обойтись без них; обычные заголовки (например, названия уроков) разбору не мешают. Если секционных заголовков нет вовсе, работает старый синтаксис: строка из двух полей — флеш-карта, из трёх и более — задание.</p>
-    <h3>Однострочные записи</h3>
-    <p>Запись — одна строка, поля через <b> | </b>: сторона 1, сторона 2, затем необязательные подсказка и теги. Точка с запятой внутри первых двух полей перечисляет <b>варианты</b>: первое значение — основной текст, остальные — тоже засчитываемые. Литеральную « | » экранируйте: <code>\\|</code>.</p>
-    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | говорится при прощании | приветствия','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | неформальное приветствие | приветствия',''].join('\n'))}
+    <h3>Один стиль записи</h3>
+    <p>Запись — одна строка, поля через <b> | </b>: сторона 1, сторона 2, затем необязательные подсказка и теги. Точка с запятой в первых двух полях перечисляет <b>варианты</b> — первое значение основное, остальные тоже засчитываются; отдельных полей alt1/alt2 не нужно. Литеральные « | » и «;» экранируйте: <code>\\|</code> и <code>\\;</code>. Блочной формы нет — весь файл пишется одинаково.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | говорится при прощании | приветствия','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | неформальное приветствие | приветствия','Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana','tags: знакомство',''].join('\n'))}
     <p>В задании варианты относятся к своей стороне: вводите сторону 2 — засчитываются её текст и варианты; нажали ⇄ и вводите сторону 1 — её текст и варианты. На карточках варианты показаны строкой «Варианты: …», в заданиях после показа ответа — «Тоже верно: …».</p>
-    <h3>Блочные записи</h3>
-    <p>Длинные фразы, картинки и аудио пишутся блоком с полями. <b>alt1</b> — варианты стороны 1, <b>alt2</b> — варианты стороны 2; прежнее поле <b>alt</b> по-прежнему работает как alt2. В блочных prompt/answer точка с запятой — часть текста (не разделяется): если текст содержит «;» или « | », пишите блоком.</p>
-    ${codebox(['prompt: Меня зовут Ана.','alt1: Моё имя — Ана','answer: My name is Ana','alt2: I am Ana','tags: знакомство','','prompt: |','  Один кофе, пожалуйста.','answer: |','  A coffee, please','alt: One coffee, please','tags: кафе',''].join('\n'))}
-    <h3>Все поля</h3>
+    <h3>Секции</h3>
+    <p>Заголовок секции определяет, что такое записи под ним; имена — по-русски или по-английски, в любом регистре: <b># Карточки / # Карты / # Card / # Cards</b> — флеш-карты; <b># Задания / # Задание / # Task / # Tasks</b> — задания с вводом ответа; <b># Аудио / # Произношение / # Audio / # Speech</b> — задания на слух (см. «Аудио»). Строки <b>---</b> и пустые строки — визуальные разделители, обычные заголовки (например, названия уроков) разбору не мешают. Если заголовков нет вовсе: строка из двух полей — флеш-карта, из трёх и более — задание.</p>
+    <h3>Модификаторы под записью</h3>
+    <p>Необязательные поля дописываются строкой-ключом под записью и прикрепляются к ближайшей записи выше: <b>audio:</b>, <b>audio2:</b>, <b>hint:</b>, <b>tags:</b>, <b>id:</b>, <b>direction:</b>, <b>reverse:</b>. Ключи front:, back:, prompt:, answer:, alt1:, alt2: больше не используются — варианты пишутся через «;».</p>
+    ${codebox(['# Карточки','Good morning, how are you? | Добрый день, как дела?','hint: формальное приветствие','audio: audio/good-morning.mp3','tags: приветствия',''].join('\n'))}
+    <h3>Поля-модификаторы</h3>
     <div class="tablewrap"><table>
       <tr><th>Поле</th><th>Где</th><th>Что делает</th></tr>
-      <tr><td>front / back</td><td>карточка</td><td>сторона A и сторона B</td></tr>
-      <tr><td>prompt / answer</td><td>задание</td><td>что показываем и что нужно ввести</td></tr>
-      <tr><td>alt1</td><td>обе</td><td>варианты стороны 1 (принимаются при вводе стороны 1, после ⇄)</td></tr>
-      <tr><td>alt2</td><td>обе</td><td>варианты стороны 2 (принимаются при вводе стороны 2)</td></tr>
-      <tr><td>alt</td><td>задание</td><td>старое имя для alt2 — сохранить совместимость</td></tr>
       <tr><td>hint</td><td>обе</td><td>текст подсказки (кнопка «Подсказка»)</td></tr>
       <tr><td>audio / audio1</td><td>обе</td><td>озвучка стороны 1 (фронт/prompt); путь или ссылка на mp3/ogg/m4a/wav; несколько полей — плейлист</td></tr>
       <tr><td>audio2</td><td>обе</td><td>озвучка стороны 2 (оборот/answer)</td></tr>
       <tr><td>tags</td><td>обе</td><td>теги через запятую — фильтр при старте сессии</td></tr>
       <tr><td>id</td><td>обе</td><td>стабильный идентификатор: прогресс не собьётся при правке текста карточки</td></tr>
       <tr><td>reverse</td><td>карточка</td><td>true — тренировать в обе стороны (по умолчанию из шапки)</td></tr>
-      <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление</td></tr>
+      <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление (кнопка ⇄ скрыта)</td></tr>
     </table></div>
     <h3>Правила разбора</h3>
-    <p>• Однострочная запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Необязательные поля (audio, audio1, audio2, hint, tags, alt1, alt2, alt, id, direction, reverse), дописанные строкой-ключом под однострочной записью, прикрепляются к ней. Строка с front:, back:, prompt:, answer: начинает новую блочную запись.<br>• Блочная запись начинается строкой с полем (prompt:, front:…) и продолжается до пустой строки, «---», заголовка или следующей однострочной записи.<br>• В однострочных записях «;» разделяет варианты (первое значение — основное); в блочных prompt/answer «;» — часть текста.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+    <p>• Запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Модификаторы (audio, audio1, audio2, hint, tags, id, direction, reverse) — строки-ключи без « | », прикрепляются к ближайшей записи выше.<br>• «;» разделяет варианты (первое значение — основное); литеральные «;» и « | » экранируйте: <code>\\;</code>, <code>\\|</code>.<br>• Строки, которые не удалось разобрать, не ломают файл — они попадают в предупреждения на плитке колоды.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
   {id:'txt', title:'Файлы .txt (таблица)', html:`
     <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
     ${codebox('# комментарий\nhello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tприветствия\n')}`},
@@ -1096,11 +1091,12 @@ function instrSections(){
     <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>
     <p>На карточке картинка показывается в фиксированном размере — не выше ~170 px по высоте, пропорции сохраняются, поэтому огромные фото не ломают вид. Подходят png, jpg, webp, gif (в том числе анимированный), svg и bmp; <b>webm</b> — это видео, а не картинка: если нужна анимация, берите gif.</p>`},
   {id:'audio', title:'Аудио', html:`
-    <p><b>audio</b> (полное имя <b>audio1</b>) — озвучка стороны 1: фронт карточки или prompt задания. <b>audio2</b> — озвучка стороны 2: оборот карточки или ответ. При показе стороны звук проигрывается <b>один раз</b> автоматически; повторить — клавиша <b>P</b> или кнопка 🔊 под карточкой. Несколько полей audio — плейлист, кнопки идут по порядку.</p>
-    <p>Аудио пишется блоком или строкой-модификатором под однострочной записью — прикрепится к ближайшей записи выше:</p>
-    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3','audio2: audio/dobryj-den.mp3',''].join('\n'))}
-    <p>Задание-аудирование: блок начинается с audio, prompt объясняет, что делать:</p>
-    ${codebox(['# Задания','audio: audio/dialogue01.mp3','prompt: Что прозвучало? Напишите по-английски.','answer: Hello! How are you?',''].join('\n'))}
+    <p><b>audio</b> (полное имя <b>audio1</b>) — озвучка стороны 1: фронт карточки или prompt задания. <b>audio2</b> — озвучка стороны 2: оборот карточки или ответ. При показе стороны звук проигрывается <b>один раз</b> автоматически; повторить — клавиша <b>P</b> или кнопка 🔊 под карточкой. Несколько полей audio — плейлист, кнопки идут по порядку. Пишется модификатором под записью:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','audio2: audio/Привет_Здравствуйте.mp3','','![](img/dog.jpg) | Собака','audio2: audio/Собака.mp3',''].join('\n'))}
+    <h3>Секция # Аудио — задания на слух</h3>
+    <p>Отдельная секция для заданий «услышь и введи». Запись начинается с <b>audio:</b> или <b>audio2:</b>, после « | » — текст ответа (тоже с вариантами через «;»):</p>
+    ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
+    <p>Первая строка: звучит английская озвучка — вводите русский перевод; вторая: звучит русская — вводите английский. Ключ audio:/audio2: лишь помечает, чья это озвучка; задание всегда показывается как 🔊 с полем ввода. Подсказка и теги — как обычно: модификаторами под записью или 3-м и 4-м полями. Направление у аудиозаданий зафиксировано, кнопки ⇄ нет.</p>
     <h3>Как сделать свои аудио</h3>
     <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
@@ -1135,8 +1131,9 @@ function instrSections(){
     <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
     <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
     <p><b>Задание спрашивает не в ту сторону.</b> Нажмите ⇄ в сессии или задайте direction в файле.</p>
-    <p><b>Аудио не играет само.</b> Браузеры разрешают звук только после первого взаимодействия со страницей — кликните или нажмите любую клавишу, дальше автопроигрывание будет работать на каждой карточке. Повтор текущей стороны — клавиша P. Если звука нет совсем, проверьте путь к файлу и что он лежит рядом с колодой.</p>
-    <p><b>Внутри текста есть «;» или « | ».</b> В однострочных записях «;» разделяет варианты, а « | » — поля: экранируйте черту (\\|), а текст с «;» пишите блочной формой — там «;» остаётся частью текста, варианты перечисляются в alt1/alt2.</p>`}
+    <p><b>Аудио не играет само.</b> Браузеры разрешают звук только после первого взаимодействия со страницей — кликните или нажмите любую клавишу, дальше автопроигрывание будет работать на каждой карточке. Повтор текущей стороны — клавиша P.</p>
+    <p><b>«Аудио недоступно: audio/…».</b> Сайт ищет файл по цепочке: среди файлов, выбранных вместе с колодой → рядом со страницей index.html → рядом с файлом колоды (для ссылок на GitHub). Что сделать: нажмите «Выбрать папку» и выберите папку целиком (колода + audio/); или положите папку audio/ рядом с index.html; для колоды по ссылке загрузите mp3 в тот же репозиторий с тем же относительным путём.</p>
+    <p><b>Внутри текста есть «;» или « | ».</b> «;» разделяет варианты, « | » — поля. Литеральные символы экранируйте: <code>\\;</code> и <code>\\|</code> — строка «Раз\\; два | Один» станет карточкой с текстом «Раз; два».</p>`}
   ];
 }
 function instrSectionsEn(){
@@ -1144,38 +1141,33 @@ function instrSectionsEn(){
   {id:'start', title:'Quick start', html:`
     <p>Three steps: create a deck text file → upload it (the "Choose files" button) or add a GitHub link → press "Train". Here is a full template you can copy and edit:</p>
     ${codebox(DEMO_DECK)}
-    <p>Save files in UTF-8 as <b>.md</b> (full syntax) or <b>.txt</b> (table form, see below).</p>`},
+    <p>Save files in UTF-8 as <b>.md</b> or <b>.txt</b> (table form, see below).</p>`},
   {id:'format', title:'Deck format', html:`
     <h3>Deck header</h3>
     <p>An optional YAML block at the top sets the title and languages:</p>
     ${codebox(['---','title: English A1 — Lesson 1','lang: en        # target language','base: ru        # translation language','reverse: true   # show cards in both directions','---',''].join('\n'))}
-    <h3>Sections: # Cards and # Tasks</h3>
-    <p>The heading <b># Карточки</b> (cards) starts the flashcard section, <b># Задания</b> (tasks) — the typing-task section. Lines of <b>---</b> and blank lines are optional visual separators; ordinary headings do not affect parsing. Without section headings the legacy syntax applies: a two-field line is a flashcard, three or more fields make a task.</p>
-    <h3>One-line records</h3>
-    <p>A record is one line with fields separated by <b> | </b>: side 1, side 2, then optional hint and tags. A semicolon inside the first two fields lists <b>alternatives</b>: the first value is the main text, the rest are also accepted. Escape a literal bar as <code>\\|</code>.</p>
-    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | said when parting | greetings','','# Задания','Привет, как дела? | Hello! How are you?; Hi! How are you? | informal greeting | greetings',''].join('\n'))}
+    <h3>One style of writing</h3>
+    <p>A record is one line with fields separated by <b> | </b>: side 1, side 2, then optional hint and tags. A semicolon in the first two fields lists <b>alternatives</b> — the first value is the main text, the rest are also accepted; no separate alt1/alt2 fields are needed. Escape literal " | " and ";" as <code>\\|</code> and <code>\\;</code>. There is no block form — the whole file is written the same way.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | said when parting | greetings','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | informal greeting | greetings','Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana','tags: greetings',''].join('\n'))}
     <p>Alternatives belong to their side: typing side 2 accepts its text and alternatives; press ⇄ to type side 1 — its text and alternatives are accepted. On flashcards alternatives are shown as "Variants: …", in tasks as "Also correct: …".</p>
-    <h3>Block records</h3>
-    <p>Long phrases, images and audio use the block form. <b>alt1</b> — alternatives of side 1, <b>alt2</b> — alternatives of side 2; the older <b>alt</b> still works as alt2. Inside block prompt/answer a semicolon is plain text (never split): if your text contains ";" or " | ", write it as a block.</p>
-    ${codebox(['prompt: Меня зовут Ана.','alt1: Моё имя — Ана','answer: My name is Ana','alt2: I am Ana','tags: greetings','','prompt: |','  Один кофе, пожалуйста.','answer: |','  A coffee, please','alt: One coffee, please','tags: cafe',''].join('\n'))}
-    <h3>Fields</h3>
+    <h3>Sections</h3>
+    <p>The section heading says what the records below are; names work in Russian or English, any case: <b># Карточки / # Карты / # Card / # Cards</b> — flashcards; <b># Задания / # Задание / # Task / # Tasks</b> — typing tasks; <b># Аудио / # Произношение / # Audio / # Speech</b> — listening tasks (see "Audio"). Lines of <b>---</b> and blank lines are optional visual separators; ordinary headings do not affect parsing. Without section headings: a two-field line is a flashcard, three or more fields make a task.</p>
+    <h3>Modifiers under a record</h3>
+    <p>Optional fields are written as key lines under a record and attach to the nearest record above: <b>audio:</b>, <b>audio2:</b>, <b>hint:</b>, <b>tags:</b>, <b>id:</b>, <b>direction:</b>, <b>reverse:</b>. The keys front:, back:, prompt:, answer:, alt1:, alt2: are no longer used — alternatives are written with ";".</p>
+    ${codebox(['# Карточки','Good morning, how are you? | Добрый день, как дела?','hint: formal greeting','audio: audio/good-morning.mp3','tags: greetings',''].join('\n'))}
+    <h3>Modifier fields</h3>
     <div class="tablewrap"><table>
       <tr><th>Field</th><th>Applies to</th><th>Meaning</th></tr>
-      <tr><td>front / back</td><td>card</td><td>side A and side B</td></tr>
-      <tr><td>prompt / answer</td><td>task</td><td>shown prompt and expected answer</td></tr>
-      <tr><td>alt1</td><td>both</td><td>side-1 alternatives (accepted when typing side 1, after ⇄)</td></tr>
-      <tr><td>alt2</td><td>both</td><td>side-2 alternatives (accepted when typing side 2)</td></tr>
-      <tr><td>alt</td><td>task</td><td>legacy alias for alt2</td></tr>
       <tr><td>hint</td><td>both</td><td>hint text</td></tr>
       <tr><td>audio / audio1</td><td>both</td><td>side-1 audio (front/prompt); path or URL (mp3/ogg/m4a/wav); repeat for a playlist</td></tr>
       <tr><td>audio2</td><td>both</td><td>side-2 audio (back/answer)</td></tr>
       <tr><td>tags</td><td>both</td><td>comma-separated tags for session filters</td></tr>
       <tr><td>id</td><td>both</td><td>stable id: keeps progress when text is edited</td></tr>
       <tr><td>reverse</td><td>card</td><td>true — train both directions</td></tr>
-      <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both</td></tr>
+      <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both — fix the direction (⇄ hidden)</td></tr>
     </table></div>
     <h3>Parsing rules</h3>
-    <p>• A one-line record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• Optional fields (audio, audio1, audio2, hint, tags, alt1, alt2, alt, id, direction, reverse) written as key lines right under a one-line record attach to it. A line with front:, back:, prompt:, answer: starts a new block record.<br>• A block record starts at a field line (prompt:, front:…) and runs until a blank line, "---", a heading, or the next one-line record.<br>• In one-line records ";" splits alternatives (first value is the main one); in block prompt/answer ";" is plain text.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+    <p>• A record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• Modifiers (audio, audio1, audio2, hint, tags, id, direction, reverse) are key lines without " | " attaching to the nearest record above.<br>• ";" splits alternatives (first value is the main one); escape literal ";" and " | " as <code>\\;</code> and <code>\\|</code>.<br>• Lines that cannot be parsed do not break the file — they are reported as warnings on the deck tile.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
   {id:'txt', title:'Plain .txt (TSV)', html:`
     <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
     ${codebox('hello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tgreetings\n')}`},
@@ -1185,11 +1177,12 @@ function instrSectionsEn(){
     <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>
     <p>On a card an image is shown at a fixed size — at most ~170 px tall, proportions kept, so huge photos do not break the layout. png, jpg, webp, gif (including animated), svg and bmp all work; <b>webm</b> is a video, not an image — use gif for animation.</p>`},
   {id:'audio', title:'Audio', html:`
-    <p><b>audio</b> (full name <b>audio1</b>) is the side-1 sound: the front of a card or the prompt of a task. <b>audio2</b> is side 2: the back of a card or the answer. When a side with audio is shown, the sound plays <b>once</b> automatically; press <b>P</b> or the 🔊 button to replay. Several audio fields make a playlist with buttons in order.</p>
-    <p>Audio is written in a block or as a modifier line under a one-line record — it attaches to the nearest record above:</p>
-    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','','front: |','  Good morning, how are you?','back: |','  Добрый день, как дела?','audio: audio/good-morning.mp3','audio2: audio/dobryj-den.mp3',''].join('\n'))}
-    <p>A listening task starts with audio; the prompt explains what to do:</p>
-    ${codebox(['# Задания','audio: audio/dialogue01.mp3','prompt: What did you hear? Type it in English.','answer: Hello! How are you?',''].join('\n'))}
+    <p><b>audio</b> (full name <b>audio1</b>) is the side-1 sound: the front of a card or the prompt of a task. <b>audio2</b> is side 2: the back of a card or the answer. When a side with audio is shown, the sound plays <b>once</b> automatically; press <b>P</b> or the 🔊 button to replay. Several audio fields make a playlist with buttons in order. Written as a modifier line under a record:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','audio2: audio/Привет_Здравствуйте.mp3','','![](img/dog.jpg) | Собака','audio2: audio/Собака.mp3',''].join('\n'))}
+    <h3>The # Audio section — listening tasks</h3>
+    <p>A separate section for "hear and type" tasks. A record starts with <b>audio:</b> or <b>audio2:</b>; after " | " comes the answer text (also with ";" alternatives):</p>
+    ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
+    <p>The first line: English audio plays — type the Russian translation; the second: Russian audio — type English. The audio:/audio2: key only marks whose voice it is; the task is always shown as 🔊 with an input field. Hint and tags work as usual: modifiers under the record or the 3rd and 4th fields. Listening tasks have a fixed direction and no ⇄ button.</p>
     <h3>Making your own audio</h3>
     <p>Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media audio/good-morning.mp3',''].join('\n'))}
@@ -1214,8 +1207,9 @@ function instrSectionsEn(){
     <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
     <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
     <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>
-    <p><b>Audio does not play by itself.</b> Browsers allow sound only after the first interaction with the page — click or press any key once, then autoplay works on every card. Press P to replay the current side. If there is no sound at all, check the file path and that the file sits next to the deck.</p>
-    <p><b>The text contains ";" or " | ".</b> In one-line records ";" splits alternatives and " | " separates fields: escape the bar (\\|); text with ";" should use the block form — there ";" stays plain text and alternatives go to alt1/alt2.</p>`}
+    <p><b>Audio does not play by itself.</b> Browsers allow sound only after the first interaction with the page — click or press any key once, then autoplay works on every card. Press P to replay the current side.</p>
+    <p><b>"Audio unavailable: audio/…".</b> The site looks the file up in a chain: among the files selected together with the deck → next to index.html → next to the deck file (for GitHub links). What to do: press "Choose folder" and pick the whole folder (deck + audio/); or put the audio/ folder next to index.html; for a link-based deck upload the mp3 files to the same repository with the same relative paths.</p>
+    <p><b>The text contains ";" or " | ".</b> ";" splits alternatives, " | " separates fields. Escape literal characters: <code>\\;</code> and <code>\\|</code> — the line "Раз\\; два | Один" becomes a card with the text "Раз; два".</p>`}
   ];
 }
 function instructionView(){
