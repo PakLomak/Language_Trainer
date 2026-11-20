@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Карточки — языковой тренажёр</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7487;
+  --accent:#4f6ef7; --accent-ink:#ffffff; --ok:#2e9e5b; --ok-bg:#e6f6ec;
+  --bad:#d64550; --bad-bg:#fdeaea; --line:#e3e7ef; --chip:#eef1f8;
+  --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#12151c; --card:#1b202b; --ink:#e8ecf5; --muted:#9aa3b5;
+    --accent:#6c86ff; --accent-ink:#0e1420; --ok:#4fc07f; --ok-bg:#1d3327; --bad:#e36672; --bad-bg:#3a2126;
+    --line:#2a3140; --chip:#232a37; --shadow:0 1px 3px rgba(0,0,0,.4); }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+#app{max-width:860px;margin:0 auto;padding:16px 14px 70px}
+h1{font-size:1.35rem;margin:.2rem 0 1rem}
+h2{font-size:1.12rem;margin:1.6rem 0 .6rem}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.5rem 0}
+.muted{color:var(--muted)}
+.err{color:var(--bad);font-size:.85rem}
+.hidden{display:none!important}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.top h1{margin:0}
+.top .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lang-switch{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.lang-switch button{border:0;background:transparent;color:var(--muted);padding:.35rem .65rem;cursor:pointer;font-size:.85rem}
+.lang-switch button.on{background:var(--accent);color:var(--accent-ink)}
+.btn{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.55rem .9rem;font-size:.95rem;cursor:pointer;user-select:none;text-decoration:none}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-danger{color:var(--bad);border-color:var(--bad)}
+.btn-sm{padding:.32rem .65rem;font-size:.85rem;border-radius:8px}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.deck{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:10px}
+.deck .name{font-weight:600;font-size:1.02rem;word-break:break-word}
+.badge{display:inline-block;font-size:.72rem;padding:.15rem .5rem;border-radius:99px;background:var(--chip);color:var(--muted);margin-left:6px;vertical-align:middle}
+.meta{color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:.3rem 1rem}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:16px}
+.panel h3{margin-top:0}
+input[type=text],input[type=url],input[type=number]{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:.95rem}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35rem}
+.overlay{position:fixed;inset:0;background:rgba(10,14,25,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+@media(min-width:640px){.overlay{align-items:center}}
+.modal{background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px;max-height:90vh;overflow:auto}
+@media(min-width:640px){.modal{border-radius:16px}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:.28rem .75rem;font-size:.85rem;cursor:pointer;user-select:none}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.sess-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar{height:6px;background:var(--chip);border-radius:99px;overflow:hidden;margin-bottom:18px}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.stage{position:relative}
+.tapholder{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 20px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:1.3rem;line-height:1.45;word-break:break-word}
+.tapholder.small{font-size:1.05rem;cursor:default;align-items:stretch;text-align:left}
+.side-label{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+.flip-hint{color:var(--muted);font-size:.8rem;margin-top:14px}
+.card-img{max-width:100%;height:auto;max-height:260px;border-radius:10px;margin:.5rem 0}
+.divider{height:1px;background:var(--line);margin:16px 0;width:100%}
+.grade{display:flex;gap:10px;margin-top:16px}
+.grade .btn{flex:1;justify-content:center;padding:.85rem;font-size:1.02rem;border-radius:12px}
+.g-ok{color:var(--ok);border-color:var(--ok)}
+.g-bad{color:var(--bad);border-color:var(--bad)}
+.answer-box{background:var(--ok-bg);border:1px solid var(--ok);border-radius:10px;padding:.75rem .9rem;margin-top:12px;font-size:1.12rem;word-break:break-word}
+.diff-ok{color:var(--ok)}
+.diff-no{color:var(--bad);text-decoration:underline wavy var(--bad) 1.5px;text-underline-offset:4px}
+.typed-echo{color:var(--muted);font-size:.88rem;margin-top:.5rem;word-break:break-word}
+.alts{color:var(--muted);font-size:.85rem;margin-top:.5rem}
+.hintline{background:var(--chip);border-radius:10px;padding:.55rem .85rem;margin-top:12px;font-size:1.1rem;letter-spacing:.14em;word-break:break-all}
+.hinttext{color:var(--muted);font-size:.9rem;margin-top:10px;font-style:italic}
+.keys{color:var(--muted);font-size:.75rem;margin-top:22px;text-align:center}
+@media(max-width:639px){.keys{display:none}}
+.audio-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.instr{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:760px){.instr{grid-template-columns:225px 1fr;align-items:start}}
+.instr nav{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px;display:flex;flex-wrap:wrap;gap:4px}
+@media(min-width:760px){.instr nav{flex-direction:column;position:sticky;top:12px;flex-wrap:nowrap}}
+.instr nav a{padding:.4rem .6rem;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.9rem;cursor:pointer;display:block}
+.instr nav a:hover{background:var(--chip)}
+.instr .content{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-width:0}
+.instr .content section{border-bottom:1px solid var(--line);padding-bottom:1.2rem;margin-bottom:1.4rem}
+.instr .content section:last-child{border-bottom:0;margin-bottom:0}
+.codebox{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:.6rem 0 1rem}
+.codebox pre{margin:0;font:12.5px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre}
+.copy{position:absolute;top:6px;right:6px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem;margin:.6rem 0}
+th,td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:var(--chip)}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:10px;font-size:.9rem;z-index:99;max-width:90vw;box-shadow:var(--shadow)}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+/* =====================================================================
+   НАСТРОЙКИ АВТОРА САЙТА
+   RECOMMENDED_DECKS — колоды, которые видны всем при первом открытии.
+   Добавьте ссылки на raw-файлы своего репозитория:
+     { name: 'English A1', url: 'https://raw.githubusercontent.com/user/repo/main/decks/en-basic.md' }
+   Демо-колода встроена в файл и работает даже без интернета.
+   ===================================================================== */
+const RECOMMENDED_DECKS = [
+  // { name: 'English A1', url: 'decks/en-basic.md' },
+];
+
+/* Демо-колода (испанский → русский) */
+const DEMO_DECK = [
+'---',
+'title: Испанский A1 — Приветствия и знакомство',
+'lang: es',
+'base: ru',
+'reverse: true',
+'description: Демо-колода. Свои базы добавляйте по ссылке или файлом; формат описан в разделе «Инструкция».',
+'---',
+'',
+'# Карточки',
+'',
+'hola | привет',
+'adiós | до свидания',
+'gracias | спасибо',
+'por favor | пожалуйста',
+'sí | да',
+'no | нет',
+'buenos días | добрый день',
+'buenas noches | добрый вечер / спокойной ночи',
+'¿cómo estás? | как дела?',
+'me llamo Ana | меня зовут Ана',
+'mucho gusto | очень приятно',
+'hasta luego | до скорого',
+'un café | кофе',
+'la cuenta | счёт (в кафе)',
+'',
+'front: |',
+'  Buenos días, ¿qué tal?',
+'back: |',
+'  Добрый день, как дела?',
+'hint: формальное приветствие',
+'tags: приветствия',
+'',
+'front: |',
+'  ¡Hasta mañana!',
+'back: |',
+'  До завтра!',
+'hint: говорится при прощании',
+'tags: приветствия',
+'',
+'# Задания',
+'',
+'prompt: |',
+'  Привет, как дела?',
+'answer: |',
+'  ¡Hola! ¿Cómo estás?',
+'alt: Hola, ¿qué tal?; ¿Qué tal?',
+'hint: неформальное приветствие',
+'tags: приветствия',
+'',
+'prompt: |',
+'  Меня зовут Ана.',
+'answer: |',
+'  Me llamo Ana',
+'tags: знакомство',
+'',
+'prompt: |',
+'  Добрый день, как дела?',
+'answer: |',
+'  Buenos días, ¿qué tal?',
+'hint: не забудьте перевёрнутый знак вопроса',
+'tags: приветствия',
+'',
+'prompt: |',
+'  Один кофе, пожалуйста.',
+'answer: |',
+'  Un café, por favor',
+'tags: кафе',
+'',
+].join('\n');
+
+/* ============================ i18n ============================ */
+const I18N = {
+ru:{
+  appName:'Карточки', tagline:'языковой тренажёр',
+  navInstruction:'Инструкция', language:'Язык',
+  myDecks:'Мои колоды', empty:'Пока нет ни одной колоды. Добавьте ссылку или загрузите файл.',
+  train:'Тренировать', trainAll:'Тренировать все колоды вместе',
+  refresh:'Обновить', delete:'Удалить', confirmDelete:'Удалить колоду? Прогресс по ней сохранится в архиве прогресса.',
+  restoreDemo:'Вернуть демо-колоду',
+  badgeBuiltin:'встроенная', badgeUrl:'по ссылке', badgeLocal:'локальная',
+  cardsCount:'карточек', tasksCount:'заданий', statKnew:'знал', statMissed:'не знал',
+  addUrlTitle:'Добавить колоду по ссылке', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
+  addBtn:'Добавить', noUrl:'Введите ссылку на файл колоды',
+  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы',
+  uploadHint:'Выберите сразу .md/.txt и лежащие рядом картинки и аудио — пути в карточках свяжутся автоматически. Текст колоды сохранится в браузере (localStorage); медиа привязываются на текущую сессию.',
+  fetchFail:'Не удалось загрузить', parseEmpty:'В файле не найдено ни одной карточки',
+  added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
+  settingsTitle:'Настройки', autoplay:'Автовоспроизведение аудио при показе карточки',
+  exportProgress:'Экспортировать прогресс', importProgress:'Импортировать прогресс',
+  resetProgress:'Сбросить весь прогресс', confirmReset:'Точно сбросить весь прогресс?',
+  progressCleared:'Прогресс сброшен', imported:'Прогресс импортирован', invalidFile:'Некорректный файл прогресса',
+  setupTitle:'Настройка сессии', mode:'Режим', modeCards:'Карточки', modeTasks:'Задания', modeMix:'Микс',
+  direction:'Направление', dirMixed:'Смешанно', dirL1L2:'Родной → изучаемый', dirL2L1:'Изучаемый → родной',
+  onlyMistakes:'Повторить только ошибки', tagsFilter:'Теги (необязательно)',
+  size:'Сколько карточек за сессию (пусто — все)', start:'Начать', cancel:'Отмена',
+  exit:'Выйти', showAnswer:'Показать ответ', hint:'Подсказка', flipDir:'Сменить направление',
+  knew:'Знал', missed:'Не знал',
+  sideA:'Сторона A', sideB:'Сторона B', tapToFlip:'Нажмите, чтобы перевернуть',
+  prompt:'Задание', answer:'Ответ', typeHere:'Введите перевод…',
+  hintField:'Подсказка:', hintAllShown:'Открыты все буквы', audio:'Аудио', audioFail:'Аудио недоступно',
+  exact:'Совпадает с эталоном', alsoCorrect:'Тоже верно:', yourAnswer:'Ваш ответ:',
+  done:'Сессия завершена', doneHints:'Подсказок', repeatMistakes:'Повторить ошибки', toHome:'На главную',
+  noCards:'Под эти настройки не нашлось ни одной карточки', noMistakes:'Ошибок нет — тренируйтесь дальше!',
+  keysHint:'Пробел / Enter — переворот или показать ответ · 1 — знал · 2 — не знал · H — подсказка · F — сменить направление · Esc — выход',
+  warnings:'Замечания при разборе', copied:'Скопировано', copy:'Копировать',
+  instrTitle:'Инструкция'
+},
+en:{
+  appName:'Flashcards', tagline:'language trainer',
+  navInstruction:'Guide', language:'Language',
+  myDecks:'My decks', empty:'No decks yet. Add a link or upload a file.',
+  train:'Train', trainAll:'Train all decks together',
+  refresh:'Refresh', delete:'Delete', confirmDelete:'Delete this deck? Its progress stays in the progress archive.',
+  restoreDemo:'Restore demo deck',
+  badgeBuiltin:'built-in', badgeUrl:'link', badgeLocal:'local',
+  cardsCount:'cards', tasksCount:'tasks', statKnew:'knew', statMissed:'missed',
+  addUrlTitle:'Add a deck by link', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
+  addBtn:'Add', noUrl:'Enter a link to a deck file',
+  uploadTitle:'Upload files from your device', uploadBtn:'Choose files',
+  uploadHint:'Select .md/.txt files together with nearby images and audio — relative paths will be linked automatically. Deck text is saved in the browser (localStorage); media is bound for the current session.',
+  fetchFail:'Failed to load', parseEmpty:'No cards found in the file',
+  added:'Deck added', updated:'Updated', saved:'Saved',
+  settingsTitle:'Settings', autoplay:'Autoplay audio when a card is shown',
+  exportProgress:'Export progress', importProgress:'Import progress',
+  resetProgress:'Reset all progress', confirmReset:'Really reset all progress?',
+  progressCleared:'Progress cleared', imported:'Progress imported', invalidFile:'Invalid progress file',
+  setupTitle:'Session setup', mode:'Mode', modeCards:'Cards', modeTasks:'Tasks', modeMix:'Mix',
+  direction:'Direction', dirMixed:'Mixed', dirL1L2:'Native → target', dirL2L1:'Target → native',
+  onlyMistakes:'Repeat mistakes only', tagsFilter:'Tags (optional)',
+  size:'Cards per session (empty — all)', start:'Start', cancel:'Cancel',
+  exit:'Exit', showAnswer:'Show answer', hint:'Hint', flipDir:'Flip direction',
+  knew:'Knew it', missed:'Missed it',
+  sideA:'Side A', sideB:'Side B', tapToFlip:'Tap to flip',
+  prompt:'Prompt', answer:'Answer', typeHere:'Type the translation…',
+  hintField:'Hint:', hintAllShown:'All letters revealed', audio:'Audio', audioFail:'Audio unavailable',
+  exact:'Matches the reference', alsoCorrect:'Also correct:', yourAnswer:'Your answer:',
+  done:'Session complete', doneHints:'Hints', repeatMistakes:'Repeat mistakes', toHome:'Home',
+  noCards:'No cards match these settings', noMistakes:'No mistakes yet — keep going!',
+  keysHint:'Space / Enter — flip or reveal · 1 — knew · 2 — missed · H — hint · F — flip direction · Esc — exit',
+  warnings:'Parse warnings', copied:'Copied', copy:'Copy',
+  instrTitle:'Guide'
+}};
+let LANG = 'ru';
+function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.ru[k] || k; }
+
+/* ============================ utils ============================ */
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fnv(str){ let h=0x811c9dc5; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return h.toString(16); }
+function nowIso(){ return new Date().toISOString(); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+let toastTimer=null;
+function toast(msg, ms){
+  const old=document.querySelector('.toast'); if(old) old.remove();
+  const d=document.createElement('div'); d.className='toast'; d.textContent=msg;
+  document.body.appendChild(d);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>d.remove(), ms||2800);
+}
+function copyText(text){
+  const done=()=>toast(t('copied'));
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast(t('copied')); }
+    ta.remove();
+  }
+}
+
+/* ---- PARSER BEGIN (pure functions, no DOM) ---- */
+function normalizeText(s){
+  return String(s||'').toLowerCase()
+    .replace(/ё/g,'е')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[«»"'„“”()\[\]{}¿?¡!.,;:—–\-…]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function normalizeWord(s){ return normalizeText(s); }
+function extractFrontmatter(text){
+  const lines=text.split('\n');
+  if(!lines.length || lines[0].trim()!=='---') return null;
+  let end=-1;
+  for(let i=1;i<lines.length;i++){ if(lines[i].trim()==='---'){ end=i; break; } }
+  if(end<0) return null;
+  const meta={};
+  for(const l of lines.slice(1,end)){
+    const m=l.match(/^([A-Za-z_][\w-]*)\s*:\s*(.*)$/);
+    if(m) meta[m[1].toLowerCase()]=m[2].trim().replace(/^["']|["']$/g,'');
+  }
+  return { meta, body: lines.slice(end+1).join('\n') };
+}
+const FIELD_KEYS=['front','back','prompt','answer','alt','hint','audio','tags','id','direction','reverse'];
+const FIELD_RE=new RegExp('^\\s*('+FIELD_KEYS.join('|')+')\\s*:\\s*(.*)$','i');
+function splitPipes(joined){
+  for(let i=0;i<joined.length-2;i++){
+    if(joined[i]===' ' && joined[i+1]==='|' && joined[i+2]===' ' && (i===0||joined[i-1]!=='\\')){
+      return [joined.slice(0,i), joined.slice(i+3)];
+    }
+  }
+  return null;
+}
+function unesc(s){ return s.replace(/\\\|/g,'|'); }
+function parseTags(arr){
+  return (arr||[]).join(',').split(/[,;]/).map(s=>s.trim()).filter(Boolean);
+}
+function fieldValue(f){
+  let v=f.val;
+  const blockMarker=(v===''||v==='|'||v==='|-');
+  if(blockMarker){
+    const ls=f.lines;
+    let min=-1;
+    for(const l of ls){ if(l.trim()!==''){ const ind=l.match(/^\s*/)[0].length; if(min<0||ind<min) min=ind; } }
+    if(min<0) min=0;
+    const out=ls.map(l=> min>0 && /^\s/.test(l) ? l.slice(min) : l).join('\n');
+    return out.replace(/^\n+/,'').replace(/\s+$/,'');
+  }
+  if(f.lines.length && f.lines.join('').trim()){
+    return (v+'\n'+f.lines.join('\n')).trim();
+  }
+  return v.trim();
+}
+function parseBlockLines(rawLines, section, warnings){
+  const lines=rawLines.slice();
+  while(lines.length && !lines[0].trim()) lines.shift();
+  while(lines.length && !lines[lines.length-1].trim()) lines.pop();
+  if(!lines.length) return null;
+  const fields=[]; let hasField=false; const stray=[]; const strays=[];
+  for(const line of lines){
+    const m=line.match(FIELD_RE);
+    if(m){ hasField=true; fields.push({key:m[1].toLowerCase(), val:m[2], lines:[]}); }
+    else if(hasField && fields.length){ fields[fields.length-1].lines.push(line); }
+    else if(line.trim()){ stray.push(line); }
+  }
+  if(!hasField){
+    // каждая строка с « | » — отдельная короткая карточка; строки без « | » пропускаем с замечанием
+    const cards=[];
+    for(const line of lines){
+      const s=line.trim();
+      if(!s) continue;
+      const sp=splitPipes(s);
+      if(sp){ cards.push({ type:'card', front:unesc(sp[0].trim()), back:unesc(sp[1].trim()), audio:[], tags:[], alts:[] }); continue; }
+      if(section==='tasks') warnings.push('Задание без поля answer пропущено: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+      else warnings.push('Строка без « | » пропущена: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+    }
+    if(cards.length===0) return null;
+    return cards.length===1 ? cards[0] : cards;
+  }
+  if(stray.length){
+    // строки до первого поля: строка с « | » — короткая карточка, остальное — замечание
+    for(const line of stray){
+      const s=line.trim(); if(!s) continue;
+      const sp=splitPipes(s);
+      if(sp){ strays.push({ type:'card', front:unesc(sp[0].trim()), back:unesc(sp[1].trim()), audio:[], tags:[], alts:[] }); continue; }
+      warnings.push('Строки вне полей пропущены: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+    }
+  }
+  const obj={};
+  for(const f of fields){ const v=fieldValue(f); (obj[f.key]=obj[f.key]||[]).push(v); }
+  const g=k=>obj[k]&&obj[k][0];
+  const card={ audio:(obj.audio||[]).filter(Boolean), alts:(obj.alt||[]).flatMap(a=>String(a).split(';')).map(s=>s.trim()).filter(Boolean), tags:parseTags(obj.tags) };
+  if(obj.hint) card.hint=g('hint');
+  if(obj.id) card.id=String(g('id')).trim();
+  if(obj.direction){ const d=String(g('direction')).trim().toLowerCase(); card.direction=['l2l1','l1l2','both'].includes(d)?d:'both'; }
+  if(obj.reverse){ const r=String(g('reverse')).trim().toLowerCase(); card.reverse=(r==='true'||r==='yes'); }
+  if(g('answer')!==undefined){
+    card.type='task'; card.prompt=g('prompt')||''; card.answer=g('answer')||'';
+    if(!card.answer.trim()){ warnings.push('Задание с пустым answer пропущено'); return null; }
+    if(!card.prompt.trim() && !card.audio.length) warnings.push('Задание без prompt и без audio пропущено');
+  } else if(g('front')!==undefined){
+    card.type='card'; card.front=g('front')||''; card.back=g('back')||'';
+  } else {
+    warnings.push('Блок без front/prompt пропущен');
+    return null;
+  }
+  if(strays.length) return strays.concat([card]);
+  return card;
+}
+function finalizeCard(c){
+  const base = c.type==='card' ? ('card|'+c.front) : ('task|'+c.prompt+'|'+c.answer);
+  if(!c.id) c.id=fnv(base);
+  if(c.type==='task' && c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.answer));
+  return c;
+}
+function makeDeck(meta, cards, warnings, filename){
+  const base=(filename||'Колода').replace(/\.[^.]+$/,'');
+  return {
+    title: String(meta.title||base).trim()||'Колода',
+    lang: (meta.lang||'').toLowerCase(),
+    base: (meta.base||'').toLowerCase(),
+    reverse: /^(true|yes|да|1)$/i.test(meta.reverse||''),
+    description: meta.description||'',
+    cards, warnings
+  };
+}
+function parseMd(text, filename){
+  const warnings=[];
+  const fm=extractFrontmatter(text);
+  let body=text, meta={};
+  if(fm){ meta=fm.meta; body=fm.body; }
+  const blocks=[]; let cur=[]; let section=null; let prevBlank=false;
+  for(const line of body.split('\n')){
+    const h=line.match(/^\s*#\s+(.+?)\s*$/);
+    if(h){
+      if(cur.length){ blocks.push({section, lines:cur}); cur=[]; }
+      const ht=h[1].toLowerCase();
+      if(ht==='карточки'||ht==='cards') section='cards';
+      else if(ht==='задания'||ht==='tasks') section='tasks';
+      continue;
+    }
+    if(/^\s*-{3,}\s*$/.test(line)){ blocks.push({section, lines:cur}); cur=[]; prevBlank=true; continue; }
+    // пустая строка + новая строка front:/prompt: = новая карточка (без обязательного ---)
+    if(prevBlank && cur.length && /^\s*(front|prompt)\s*:/i.test(line)){
+      blocks.push({section, lines:cur}); cur=[];
+    }
+    cur.push(line);
+    prevBlank=!line.trim();
+  }
+  if(cur.length) blocks.push({section, lines:cur});
+  const cards=[];
+  for(const b of blocks){
+    const res=parseBlockLines(b.lines, b.section, warnings);
+    const list=Array.isArray(res)?res:(res?[res]:[]);
+    for(const c of list) cards.push(finalizeCard(c));
+  }
+  return makeDeck(meta, cards, warnings, filename);
+}
+function parseTsv(text, filename){
+  const warnings=[]; const cards=[];
+  for(const line of text.split('\n')){
+    if(!line.trim() || /^\s*#/.test(line)) continue;
+    const cols=line.split('\t').map(c=>c.trim());
+    if(cols.length>=3){
+      const parts=cols[1].split(';').map(s=>s.trim()).filter(Boolean);
+      cards.push(finalizeCard({ type:'task', prompt:cols[0], answer:parts[0]||'', alts:parts.slice(1), audio:[], tags:parseTags([cols[2]]) }));
+    } else if(cols.length>=2){
+      cards.push(finalizeCard({ type:'card', front:cols[0], back:cols[1], audio:[], tags:[], alts:[] }));
+    } else {
+      warnings.push('Строка без Tab-разделителя пропущена: «'+line.trim().slice(0,40)+'…»');
+    }
+  }
+  return makeDeck({}, cards, warnings, filename);
+}
+function parseDeck(text, filename){
+  text=String(text||'').replace(/\r\n?/g,'\n');
+  if(/\.txt$/i.test(filename||'')) return parseTsv(text, filename);
+  return parseMd(text, filename);
+}
+function diffTokens(answer, typed){
+  const a=String(answer||'').split(/\s+/).filter(Boolean);
+  const b=String(typed||'').split(/\s+/).filter(Boolean);
+  const n=a.length, m=b.length;
+  const eq=(x,y)=>normalizeWord(x)===normalizeWord(y);
+  const dp=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
+    dp[i][j]=eq(a[i],b[j]) ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const res=[]; let i=0,j=0;
+  while(i<n && j<m){
+    if(eq(a[i],b[j])){ res.push({t:a[i],ok:true}); i++; j++; }
+    else if(dp[i+1][j]>=dp[i][j+1]){ res.push({t:a[i],ok:false}); i++; }
+    else { j++; }
+  }
+  while(i<n){ res.push({t:a[i],ok:false}); i++; }
+  return res;
+}
+function isExact(answer, typed, alts){
+  const nt=normalizeText(typed);
+  if(!nt) return false;
+  return normalizeText(answer)===nt || (alts||[]).some(x=>normalizeText(x)===nt);
+}
+const VISIBLE_CH=/[\s¿?¡!.,;:«»"'„“”(){}\[\]\-–—…]/;
+function buildMask(target, revealed){
+  return [...String(target||'')].map((ch,i)=> (VISIBLE_CH.test(ch)||revealed.has(i)) ? ch : '•').join('');
+}
+function nextRevealIndex(target, revealed){
+  const idx=[];
+  [...String(target||'')].forEach((ch,i)=>{ if(!VISIBLE_CH.test(ch) && !revealed.has(i)) idx.push(i); });
+  if(!idx.length) return null;
+  return idx[Math.floor(Math.random()*idx.length)];
+}
+/* ---- PARSER END ---- */
+
+/* ============================ storage ============================ */
+const LS={ settings:'lt.settings', decks:'lt.decks', progress:'lt.progress' };
+function loadJson(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+function saveJson(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('localStorage: '+e.message); } }
+let settings=Object.assign({lang:'ru', autoplay:false}, loadJson(LS.settings, {}));
+let deckMetas=loadJson(LS.decks, []);
+let progress=loadJson(LS.progress, {});
+LANG = I18N[settings.lang] ? settings.lang : 'ru';
+function saveSettings(){ saveJson(LS.settings, settings); }
+function saveDecks(){ saveJson(LS.decks, deckMetas); }
+function saveProgress(){ saveJson(LS.progress, progress); }
+function progKey(deckId, cardId){ return deckId+'|'+cardId; }
+function recFor(key){ return progress[key] || (progress[key]={k:0,m:0,h:0,ls:''}); }
+
+/* ============================ decks ============================ */
+const deckCache={};
+function getDeck(meta){
+  const ck=meta.id+'|'+fnv(meta.text||'');
+  if(deckCache[ck]) return deckCache[ck];
+  const d=parseDeck(meta.text||'', /\.txt$/i.test(meta.url||'')||(meta.kind==='local'&&/\.txt$/i.test(meta.name||'')) ? 'x.txt' : 'x.md');
+  d.metaId=meta.id;
+  deckCache[ck]=d;
+  return d;
+}
+function deckIdForLocal(title){ return 'local:'+String(title||'').toLowerCase(); }
+const localAssets={}; // deckId -> {relPath: blobUrl}
+function resolverFor(metaId){
+  const meta=deckMetas.find(m=>m.id===metaId);
+  return src=>{
+    if(/^(https?:|data:|blob:)/i.test(src)) return src;
+    if(meta && meta.kind==='local'){
+      const map=localAssets[meta.id]||{};
+      const clean=src.replace(/^\.\//,'');
+      if(map[clean]) return map[clean];
+      if(map[clean.split('/').pop()]) return map[clean.split('/').pop()];
+      return src;
+    }
+    if(meta && meta.url){
+      try{ return new URL(src, meta.url).href; }catch(e){ return src; }
+    }
+    return src;
+  };
+}
+function upsertDeck(meta){
+  const i=deckMetas.findIndex(d=>d.id===meta.id);
+  if(i>=0) deckMetas[i]=meta; else deckMetas.push(meta);
+  saveDecks();
+}
+function addDeckFromText(text, name, kind, url){
+  const deck=parseDeck(text, url||name);
+  if(!deck.cards.length){ toast(t('parseEmpty')); return null; }
+  const id = kind==='url' ? 'url:'+url : deckIdForLocal(deck.title);
+  const meta={ id, kind, name:deck.title, url:url||'', text, savedAt:nowIso() };
+  delete meta.error;
+  upsertDeck(meta);
+  return meta;
+}
+function seedBuiltins(){
+  let changed=false;
+  const demoId='builtin:demo-es';
+  const dm=deckMetas.find(d=>d.id===demoId);
+  if(!dm){
+    deckMetas.unshift({ id:demoId, kind:'builtin', name:'Испанский A1 — Приветствия и знакомство', url:'', text:DEMO_DECK, savedAt:nowIso() });
+    changed=true;
+  } else if(dm.text!==DEMO_DECK){
+    // встроенная демо-колода всегда синхронизируется с текущей версией сайта; прогресс сохраняется по id карточек
+    dm.text=DEMO_DECK;
+    changed=true;
+  }
+  for(const r of RECOMMENDED_DECKS){
+    if(!r.url) continue;
+    const id='builtin:'+fnv(r.url);
+    if(!deckMetas.some(d=>d.id===id)){
+      deckMetas.push({ id, kind:'builtin', name:r.name||r.url, url:r.url, text:'', savedAt:'' });
+      changed=true;
+      fetchDeckText(id, true);
+    }
+  }
+  if(changed) saveDecks();
+}
+async function fetchDeckText(id, silent){
+  const m=deckMetas.find(d=>d.id===id);
+  if(!m || !m.url) return;
+  try{
+    const res=await fetch(m.url, {cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    m.text=await res.text();
+    m.savedAt=nowIso();
+    delete m.error;
+    const d=parseDeck(m.text, m.url);
+    if(d.cards.length) m.name=d.title;
+    saveDecks();
+    if(!silent){ toast(t('updated')); rerender(); }
+    else rerender();
+  }catch(e){
+    m.error=e.message; saveDecks();
+    if(!silent){ toast(t('fetchFail')+': '+e.message); rerender(); }
+    else rerender();
+  }
+}
+
+/* ============================ audio ============================ */
+function playAudioUrl(src, metaId){
+  const url=resolverFor(metaId)(src);
+  try{
+    const a=new Audio(url);
+    a.play().catch(()=>toast(t('audioFail')));
+  }catch(e){ toast(t('audioFail')); }
+}
+function autoplayAudio(ex){
+  if(settings.autoplay && ex.card.audio && ex.card.audio.length){
+    playAudioUrl(ex.card.audio[0], ex.deck.metaId);
+  }
+}
+
+/* ============================ session ============================ */
+let S=null;          // текущая сессия
+let pendingSetup=null;
+function startSession(config){
+  const decks=config.deckIds
+    .map(id=>{ const m=deckMetas.find(x=>x.id===id); return m?getDeck(m):null; })
+    .filter(Boolean);
+  const exs=[];
+  for(const d of decks){
+    for(const c of d.cards){
+      if(config.tags.length && !c.tags.some(tg=>config.tags.includes(tg))) continue;
+      let dirs;
+      if(c.type==='card'){
+        const rev=(c.reverse!==undefined)?c.reverse:d.reverse;
+        dirs=rev?['l2l1','l1l2']:['l2l1'];
+      } else {
+        const dir=c.direction||'both';
+        dirs=dir==='both'?['l1l2','l2l1']:[dir];
+      }
+      for(const dir of dirs){
+        if(config.direction!=='mixed' && config.direction!==dir) continue;
+        if(config.onlyMistakes){
+          const r=progress[progKey(d.metaId,c.id)];
+          if(!r || !r.m) continue;
+        }
+        exs.push({deck:d, card:c, dir});
+      }
+    }
+  }
+  if(!exs.length){ toast(t('noCards')); return; }
+  shuffle(exs);
+  const list=config.size ? exs.slice(0, config.size) : exs;
+  S={ exs:list, i:0, flipped:false, revealed:false, typed:'', showHint:false,
+      revealedLetters:new Set(), hintPresses:0, hintsTotal:0,
+      ok:0, bad:0, done:false, config };
+  if(location.hash==='#/session') rerender(); else location.hash='#/session';
+}
+function cur(){
+  const ex=S.exs[S.i];
+  return { deck:ex.deck, card:ex.card, dir:S.dirOverrides && S.dirOverrides[S.i] ? S.dirOverrides[S.i] : ex.dir, idx:S.i };
+}
+function sides(ex){
+  const c=ex.card;
+  if(c.type==='card') return ex.dir==='l2l1' ? {a:c.front,b:c.back} : {a:c.back,b:c.front};
+  return ex.dir==='l1l2' ? {a:c.prompt,b:c.answer} : {a:c.answer,b:c.prompt};
+}
+function resetExerciseState(){
+  S.flipped=false; S.revealed=false; S.typed=''; S.showHint=false;
+  S.revealedLetters=new Set(); S.hintPresses=0;
+}
+function flipDir(){
+  const ex=cur();
+  const other=ex.dir==='l2l1'?'l1l2':'l2l1';
+  S.dirOverrides=S.dirOverrides||{};
+  S.dirOverrides[S.i]=other;
+  resetExerciseState();
+  rerender();
+}
+function grade(ok){
+  const ex=cur();
+  const rec=recFor(progKey(ex.deck.metaId, ex.card.id));
+  if(ok){ rec.k++; S.ok++; } else { rec.m++; S.bad++; }
+  rec.h=(rec.h||0)+S.hintPresses;
+  rec.ls=nowIso();
+  saveProgress();
+  S.i++;
+  resetExerciseState();
+  if(S.i>=S.exs.length){ S.done=true; }
+  rerender();
+}
+function actReveal(){
+  if(!S || S.done) return;
+  const ex=cur();
+  if(ex.card.type!=='task' || S.revealed) return;
+  const inp=document.getElementById('typed');
+  if(inp) S.typed=inp.value;
+  S.revealed=true;
+  rerender();
+}
+function actHint(){
+  if(!S || S.done) return;
+  const ex=cur();
+  if(ex.card.type==='card'){
+    if(!ex.card.hint) return;
+    S.showHint=!S.showHint;
+    rerender();
+    return;
+  }
+  if(S.revealed) return;
+  const b=sides(ex).b;
+  const idx=nextRevealIndex(b, S.revealedLetters);
+  if(idx==null){ toast(t('hintAllShown')); return; }
+  S.revealedLetters.add(idx);
+  S.hintPresses++; S.hintsTotal++;
+  rerender();
+}
+
+/* ============================ views ============================ */
+function langSwitch(){
+  return `<span class="lang-switch">
+    <button class="${LANG==='ru'?'on':''}" data-act="set-lang" data-arg="ru">RU</button>
+    <button class="${LANG==='en'?'on':''}" data-act="set-lang" data-arg="en">EN</button>
+  </span>`;
+}
+function deckStatsHtml(m){
+  const deck=getDeck(m);
+  const nc=deck?deck.cards.filter(c=>c.type==='card').length:0;
+  const nt=deck?deck.cards.filter(c=>c.type==='task').length:0;
+  let k=0, mm=0, warn='';
+  if(deck){
+    for(const c of deck.cards){ const r=progress[progKey(m.id,c.id)]; if(r){ k+=r.k; mm+=r.m; } }
+    if(deck.warnings.length){
+      warn=`<div class="err" title="${esc(deck.warnings.join('\n'))}">${esc(t('warnings'))}: ${deck.warnings.length} (первое: ${esc(deck.warnings[0])})</div>`;
+    }
+  }
+  const badge=m.kind==='builtin'?t('badgeBuiltin'):m.kind==='url'?t('badgeUrl'):t('badgeLocal');
+  const err=m.error?`<div class="err">${esc(t('fetchFail'))}: ${esc(m.error)}</div>`:'';
+  return `<div class="deck">
+    <div><span class="name">${esc(m.name)}</span><span class="badge">${esc(badge)}</span></div>
+    ${err}${warn}
+    <div class="meta"><span>${nc} ${esc(t('cardsCount'))}</span><span>${nt} ${esc(t('tasksCount'))}</span><span>${esc(t('statKnew'))}: ${k}</span><span>${esc(t('statMissed'))}: ${mm}</span></div>
+    <div class="row">
+      <button class="btn btn-primary btn-sm" data-act="open-setup" data-arg="${esc(m.id)}">${esc(t('train'))}</button>
+      ${m.kind==='local'
+        ? `<button class="btn btn-sm" data-act="reupload" data-arg="${esc(m.id)}">${esc(t('refresh'))}</button>`
+        : `<button class="btn btn-sm" data-act="refresh" data-arg="${esc(m.id)}">${esc(t('refresh'))}</button>`}
+      <span class="spacer"></span>
+      <button class="btn btn-sm btn-danger" data-act="delete" data-arg="${esc(m.id)}">${esc(t('delete'))}</button>
+    </div>
+  </div>`;
+}
+function homeView(){
+  const decks=deckMetas.map(deckStatsHtml).join('');
+  const demoMissing=!deckMetas.some(d=>d.id==='builtin:demo-es');
+  return `
+  <div class="top">
+    <h1>${esc(t('appName'))} <span class="muted" style="font-size:.8rem;font-weight:400">${esc(t('tagline'))}</span></h1>
+    <div class="right">${langSwitch()}<a class="btn btn-sm" href="#/instruction">${esc(t('navInstruction'))}</a></div>
+  </div>
+  <h2>${esc(t('myDecks'))}</h2>
+  ${deckMetas.length?`<div class="grid">${decks}</div>`:`<div class="panel muted">${esc(t('empty'))}</div>`}
+  ${demoMissing?`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="restore-demo">${esc(t('restoreDemo'))}</button></div>`:''}
+  ${deckMetas.length>1?`<div class="row" style="margin-top:14px"><button class="btn" data-act="open-setup" data-arg="all">${esc(t('trainAll'))}</button></div>`:''}
+  <div class="panel">
+    <h3>${esc(t('addUrlTitle'))}</h3>
+    <div class="row">
+      <input type="url" id="url-input" placeholder="${esc(t('urlPlaceholder'))}" style="flex:1;min-width:220px">
+      <button class="btn btn-primary" data-act="add-url">${esc(t('addBtn'))}</button>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>${esc(t('uploadTitle'))}</h3>
+    <div class="row"><button class="btn btn-primary" data-act="upload">${esc(t('uploadBtn'))}</button></div>
+    <p class="muted" style="font-size:.85rem">${esc(t('uploadHint'))}</p>
+    <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,image/*,audio/*">
+  </div>
+  <div class="panel">
+    <h3>${esc(t('settingsTitle'))}</h3>
+    <label class="row" style="gap:.5rem;cursor:pointer"><input type="checkbox" id="autoplay" ${settings.autoplay?'checked':''}> ${esc(t('autoplay'))}</label>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" data-act="export">${esc(t('exportProgress'))}</button>
+      <button class="btn" data-act="import">${esc(t('importProgress'))}</button>
+      <button class="btn btn-danger" data-act="reset-progress">${esc(t('resetProgress'))}</button>
+    </div>
+    <input type="file" id="import-input" class="hidden" accept=".json,application/json">
+  </div>`;
+}
+function chipHtml(kind, val, on, label){
+  return `<span class="chip ${on?'on':''}" data-act="setup-set" data-kind="${kind}" data-arg="${esc(val)}">${esc(label)}</span>`;
+}
+function setupModalHtml(){
+  const p=pendingSetup;
+  const decks=p.ids.map(id=>deckMetas.find(m=>m.id===id)).filter(Boolean);
+  const tags=[...new Set(decks.flatMap(m=>{ const d=getDeck(m); return d?d.cards.flatMap(c=>c.tags||[]):[]; }))].sort();
+  return `<div class="overlay" data-act="overlay-close"><div class="modal">
+   <h3 style="margin-top:0">${esc(t('setupTitle'))}</h3>
+   <label class="fld">${esc(t('mode'))}</label>
+   <div class="chips">
+     ${chipHtml('mode','cards',p.mode==='cards',t('modeCards'))}
+     ${chipHtml('mode','tasks',p.mode==='tasks',t('modeTasks'))}
+     ${chipHtml('mode','mix',p.mode==='mix',t('modeMix'))}
+   </div>
+   <label class="fld">${esc(t('direction'))}</label>
+   <div class="chips">
+     ${chipHtml('dir','mixed',p.direction==='mixed',t('dirMixed'))}
+     ${chipHtml('dir','l1l2',p.direction==='l1l2',t('dirL1L2'))}
+     ${chipHtml('dir','l2l1',p.direction==='l2l1',t('dirL2L1'))}
+   </div>
+   ${tags.length?`<label class="fld">${esc(t('tagsFilter'))}</label><div class="chips">${tags.map(tg=>`<span class="chip ${p.tags.includes(tg)?'on':''}" data-act="tag" data-arg="${esc(tg)}">${esc(tg)}</span>`).join('')}</div>`:''}
+   <label class="row" style="margin-top:14px;cursor:pointer;gap:.5rem"><input type="checkbox" data-act="onlymistakes" ${p.onlyMistakes?'checked':''}> ${esc(t('onlyMistakes'))}</label>
+   <label class="fld">${esc(t('size'))}</label>
+   <input type="number" id="size-input" min="1" value="${p.size||''}" placeholder="∞">
+   <div class="row" style="margin-top:16px">
+     <button class="btn btn-primary" data-act="setup-start" style="flex:1;justify-content:center">${esc(t('start'))}</button>
+     <button class="btn" data-act="setup-cancel">${esc(t('cancel'))}</button>
+   </div>
+  </div></div>`;
+}
+function rich(text, ex){
+  const res=resolverFor(ex.deck.metaId);
+  let s=esc(text);
+  s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m,alt,src)=>`<img class="card-img" src="${esc(res(src.trim()))}" alt="${esc(alt)}" loading="lazy">`);
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  s=s.replace(/\n/g,'<br>');
+  return s;
+}
+function audioRowHtml(ex){
+  const list=ex.card.audio||[];
+  if(!list.length) return '';
+  return `<div class="audio-row">${list.map((u,i)=>`<button class="btn btn-sm" data-act="play" data-arg="${i}">🔊 ${esc(t('audio'))}${list.length>1?' '+(i+1):''}</button>`).join('')}</div>`;
+}
+function gradeRowHtml(){
+  return `<div class="grade">
+    <button class="btn g-ok" data-act="grade" data-arg="ok">✓ ${esc(t('knew'))} <span class="muted">(1)</span></button>
+    <button class="btn g-bad" data-act="grade" data-arg="bad">✕ ${esc(t('missed'))} <span class="muted">(2)</span></button>
+  </div>`;
+}
+function cardStageHtml(ex, a, b){
+  const flipped=S.flipped;
+  const hintBtn=(!flipped && ex.card.hint)
+    ? `<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="hint">${esc(t('hint'))}</button></div>`:'';
+  const hintLine=(S.showHint && ex.card.hint)
+    ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
+  return `<div class="stage">
+    <div class="tapholder" data-act="flip-card">
+      <div class="side-label">${flipped?esc(t('sideB')):esc(t('sideA'))}</div>
+      <div>${rich(flipped?b:a, ex)}</div>
+      ${!flipped?`<div class="flip-hint">${esc(t('tapToFlip'))}</div>`:''}
+    </div>
+    ${audioRowHtml(ex)}
+    ${hintBtn}${hintLine}
+    ${flipped?gradeRowHtml():''}
+  </div>`;
+}
+function taskStageHtml(ex, a, b){
+  const revealed=S.revealed;
+  let after='';
+  if(revealed){
+    const alts=ex.card.alts||[];
+    const exact=isExact(b, S.typed, alts);
+    const diff=diffTokens(b, S.typed).map(x=>`<span class="${x.ok?'diff-ok':'diff-no'}">${esc(x.t)}</span>`).join(' ');
+    after=`<div class="answer-box">
+        <div class="side-label" style="margin-bottom:.3rem">${esc(t('answer'))}</div>${diff}
+        ${alts.length?`<div class="alts">${esc(t('alsoCorrect'))} ${esc(alts.join('; '))}</div>`:''}
+        ${exact?`<div class="alts" style="color:var(--ok)">✓ ${esc(t('exact'))}</div>`:''}
+      </div>
+      <div class="typed-echo">${esc(t('yourAnswer'))} ${esc(S.typed||'—')}</div>
+      ${gradeRowHtml()}`;
+  }
+  const maskLine=(!revealed && S.revealedLetters.size)
+    ? `<div class="hintline">${esc(buildMask(b, S.revealedLetters))}</div>`:'';
+  const hintText=(!revealed && ex.card.hint)
+    ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
+  return `<div class="stage">
+    <div class="tapholder small"><div class="side-label">${esc(t('prompt'))}</div><div>${rich(a, ex)}</div></div>
+    ${audioRowHtml(ex)}
+    ${!revealed?`
+      <div style="margin-top:14px"><input type="text" id="typed" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(t('typeHere'))}" value="${esc(S.typed||'')}"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-primary" data-act="reveal">${esc(t('showAnswer'))}</button>
+        <button class="btn" data-act="hint">${esc(t('hint'))}</button>
+        <button class="btn" data-act="flip-dir" title="${esc(t('flipDir'))}">⇄</button>
+      </div>
+      ${maskLine}${hintText}
+    `:`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="flip-dir">⇄ ${esc(t('flipDir'))}</button></div>`}
+    ${after}
+  </div>`;
+}
+function sessionView(){
+  if(!S) return homeView();
+  if(S.done) return summaryView();
+  const ex=cur();
+  const s=sides(ex);
+  const total=S.exs.length;
+  const pct=Math.round((S.i/total)*100);
+  const stage=ex.card.type==='card' ? cardStageHtml(ex,s.a,s.b) : taskStageHtml(ex,s.a,s.b);
+  return `
+  <div class="sess-top">
+    <button class="btn btn-sm" data-act="exit">${esc(t('exit'))}</button>
+    <span class="muted" style="flex:1;text-align:center;word-break:break-word">${esc(ex.deck.title)}</span>
+    <span class="muted" style="white-space:nowrap">${S.i+1} / ${total}</span>
+  </div>
+  <div class="bar"><i style="width:${pct}%"></i></div>
+  ${stage}
+  <div class="keys">${esc(t('keysHint'))}</div>`;
+}
+function summaryView(){
+  return `<div class="panel" style="text-align:center;margin-top:40px;padding:28px">
+    <h2 style="margin-top:0">${esc(t('done'))}</h2>
+    <p style="font-size:1.08rem">${esc(t('statKnew'))}: <b>${S.ok}</b> · ${esc(t('statMissed'))}: <b>${S.bad}</b> · ${esc(t('doneHints'))}: <b>${S.hintsTotal}</b></p>
+    <div class="row" style="justify-content:center;margin-top:16px">
+      <button class="btn btn-primary" data-act="repeat-mistakes">${esc(t('repeatMistakes'))}</button>
+      <button class="btn" data-act="exit">${esc(t('toHome'))}</button>
+    </div>
+  </div>`;
+}
+
+/* ============================ instruction ============================ */
+function codebox(code){
+  return `<div class="codebox"><button class="btn btn-sm copy" data-act="copy">${esc(t('copy'))}</button><pre>${esc(code)}</pre></div>`;
+}
+function instrSections(){
+  if(LANG==='en') return instrSectionsEn();
+  return [
+  {id:'start', title:'Быстрый старт', html:`
+    <p>Три шага: создайте текстовый файл колоды → загрузите его на сайт (кнопка «Выбрать файлы») или добавьте ссылкой на GitHub → нажмите «Тренировать». Вот готовый шаблон, который можно скопировать и заменить своим материалом:</p>
+    ${codebox(DEMO_DECK)}
+    <p>Файл сохраняйте в кодировке UTF-8, расширение — <b>.md</b> (полный синтаксис) или <b>.txt</b> (табличный, см. ниже).</p>`},
+  {id:'format', title:'Формат базы', html:`
+    <h3>Шапка колоды</h3>
+    <p>Необязательный YAML-блок в начале файла задаёт название и языки:</p>
+    ${codebox(['---','title: Испанский A1 — Урок 1','lang: es        # изучаемый язык','base: ru        # язык переводов','reverse: true   # карточки показывать в обе стороны','description: Описание для себя','---',''].join('\n'))}
+    <h3>Флеш-карты</h3>
+    <p>Короткие карточки пишутся одной строкой: сторона A, затем <b> | </b>, затем сторона B. Если вертикальная черта нужна внутри текста — экранируйте её обратным слэшем (\\|). Длинные фразы и дополнительные поля пишутся блоком:</p>
+    ${codebox(['hola | привет','¿cómo estás? | как дела?','![](img/perro.jpg) **perro** | собака','','front: |','  Buenos días, ¿qué tal?','back: |','  Добрый день, как дела?','hint: формальное приветствие','audio: audio/buenos-dias.mp3','tags: приветствия, формальное',''].join('\n'))}
+    <h3>Задания (ввод перевода)</h3>
+    <p>Блок с полями prompt (что показываем) и answer (что нужно написать). Проверка — самооценка: сайт показывает эталон с подсветкой отличий. Кнопка «Подсказка» открывает по одной случайной букве ответа; кнопка ⇄ меняет направление задания прямо в сессии.</p>
+    ${codebox(['prompt: |','  Привет, как дела?','answer: |','  ¡Hola! ¿Cómo estás?','alt: Hola, ¿qué tal?; ¿Qué tal?','hint: неформальное приветствие','tags: приветствия',''].join('\n'))}
+    <h3>Все поля</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Поле</th><th>Где</th><th>Что делает</th></tr>
+      <tr><td>front / back</td><td>карточка</td><td>сторона A и сторона B</td></tr>
+      <tr><td>prompt / answer</td><td>задание</td><td>что показываем и что нужно ввести</td></tr>
+      <tr><td>alt</td><td>задание</td><td>допустимые варианты ответа через «;»</td></tr>
+      <tr><td>hint</td><td>обе</td><td>текст подсказки (кнопка «Подсказка»)</td></tr>
+      <tr><td>audio</td><td>обе</td><td>путь или ссылка на mp3/ogg/m4a/wav; можно несколько полей — плейлист</td></tr>
+      <tr><td>tags</td><td>обе</td><td>теги через запятую — фильтр при старте сессии</td></tr>
+      <tr><td>id</td><td>обе</td><td>стабильный идентификатор: прогресс не собьётся при правке текста карточки</td></tr>
+      <tr><td>reverse</td><td>карточка</td><td>true — тренировать в обе стороны (по умолчанию из шапки)</td></tr>
+      <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление</td></tr>
+    </table></div>
+    <h3>Правила разбора</h3>
+    <p>• Карточки разделяются строкой <b>---</b>.<br>• Заголовки <b># Карточки</b> и <b># Задания</b> переключают тип последующих блоков.<br>• Без заголовков тип определяется автоматически: блок с answer — задание, строка с « | » — флеш-карта.<br>• Незнакомые поля игнорируются, файл не ломается.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+  {id:'txt', title:'Файлы .txt (таблица)', html:`
+    <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
+    ${codebox('# комментарий\nhola\tпривет\nperro\tсобака\n\nПривет, как дела?\t¡Hola! ¿Cómo estás?\tприветствия\n')}`},
+  {id:'images', title:'Картинки', html:`
+    <p>Картинка вставляется маркдаун-разметкой в любое поле. Три способа:</p>
+    ${codebox(['![](img/perro.jpg)                → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
+    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства выделяйте сразу md/txt и папку с картинками — сайт свяжет пути на время сессии. Для постоянной работы картинок используйте GitHub или внешние ссылки.</p>`},
+  {id:'audio', title:'Аудио', html:`
+    <p>Поле <b>audio:</b> добавляет кнопку воспроизведения к карточке или заданию. Путь — как у картинок: файл рядом с колодой или внешняя ссылка. Несколько полей audio — плейлист. Автовоспроизведение включается в настройках внизу главной страницы.</p>
+    ${codebox(['front: |','  Buenos días, ¿qué tal?','back: |','  Добрый день, как дела?','audio: audio/buenos-dias.mp3',''].join('\n'))}
+    <h3>Как сделать свои аудио</h3>
+    <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
+    ${codebox(['pip install edge-tts','','edge-tts --voice es-ES-ElviraNeural --text "Buenos días, ¿qué tal?" --write-media audio/buenos-dias.mp3',''].join('\n'))}
+    <div class="tablewrap"><table>
+      <tr><th>Язык</th><th>Голоса</th></tr>
+      <tr><td>Испанский</td><td>es-ES-ElviraNeural, es-MX-DaliaNeural, es-US-AlonsoNeural</td></tr>
+      <tr><td>Русский</td><td>ru-RU-SvetlanaNeural, ru-RU-DmitryNeural</td></tr>
+      <tr><td>Английский</td><td>en-US-AriaNeural, en-GB-SoniaNeural</td></tr>
+      <tr><td>Французский</td><td>fr-FR-DeniseNeural, fr-FR-HenriNeural</td></tr>
+      <tr><td>Немецкий</td><td>de-DE-KatjaNeural, de-DE-ConradNeural</td></tr>
+    </table></div>
+    <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы называйте латиницей без пробелов и храните в папке audio/ рядом с колодой.</p>`},
+  {id:'loading', title:'Загрузка на сайт', html:`
+    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — md/txt плюс картинки и аудио рядом; текст колоды сохраняется в браузере (localStorage), медиа действует до перезагрузки страницы.</p>
+    <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>`},
+  {id:'progress', title:'Прогресс', html:`
+    <p>По каждой карточке сайт помнит счётчики «знал / не знал», дату последнего показа и число подсказок. На плитке колоды видна сводка. В начале сессии можно выбрать «Повторить только ошибки» — тогда пойдут лишь карточки с ошибками. Кнопка сброса удаляет весь прогресс (осторожно: восстановить нельзя, заранее сделайте экспорт).</p>`},
+  {id:'keys', title:'Горячие клавиши', html:`
+    <div class="tablewrap"><table>
+      <tr><th>Клавиша</th><th>Действие</th></tr>
+      <tr><td>Пробел / Enter</td><td>перевернуть карточку или показать ответ</td></tr>
+      <tr><td>1</td><td>Знал</td></tr>
+      <tr><td>2</td><td>Не знал</td></tr>
+      <tr><td>H</td><td>Подсказка (в заданиях открывает случайные буквы)</td></tr>
+      <tr><td>F</td><td>Сменить направление задания (⇄)</td></tr>
+      <tr><td>Esc</td><td>Выйти из сессии</td></tr>
+    </table></div>
+    <p>На телефоне карточка переворачивается тапом по всей её площади.</p>`},
+  {id:'faq', title:'Вопросы и ответы', html:`
+    <p><b>Почему у локальной колоды пропали картинки после перезагрузки?</b> Медиа с устройства живут одну сессию; текст сохраняется. Для постоянных картинок положите колоду на GitHub.</p>
+    <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
+    <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
+    <p><b>Задание спрашивает не в ту сторону.</b> Нажмите ⇄ в сессии или задайте direction в файле.</p>
+    <p><b>Внутри ответа есть «;» или « | ».</b> В заданиях «;» разделяет варианты alt — для текста с «;» перечислите варианты отдельными полями alt. Во флеш-картах экранируйте черту: \\|.</p>`}
+  ];
+}
+function instrSectionsEn(){
+  return [
+  {id:'start', title:'Quick start', html:`
+    <p>Three steps: create a deck text file → upload it (the "Choose files" button) or add a GitHub link → press "Train". Here is a full template you can copy and edit:</p>
+    ${codebox(DEMO_DECK)}
+    <p>Save files in UTF-8 as <b>.md</b> (full syntax) or <b>.txt</b> (table form, see below).</p>`},
+  {id:'format', title:'Deck format', html:`
+    <h3>Deck header</h3>
+    <p>An optional YAML block at the top sets the title and languages:</p>
+    ${codebox(['---','title: Spanish A1 — Lesson 1','lang: es        # target language','base: ru        # translation language','reverse: true   # show cards in both directions','---',''].join('\n'))}
+    <h3>Flashcards</h3>
+    <p>Short cards are one line: side A, then <b> | </b>, then side B. Escape a literal bar as \\|. Long phrases and extra fields use the block form:</p>
+    ${codebox(['hola | hello','front: |','  Buenos días, ¿qué tal?','back: |','  Good morning, how are you?','hint: formal greeting','audio: audio/buenos-dias.mp3','tags: greetings',''].join('\n'))}
+    <h3>Typing tasks</h3>
+    <p>A block with prompt (shown) and answer (to type). Grading is self-assessed: the site shows the reference with a word diff. The Hint button reveals random letters one by one; ⇄ flips the task direction on the fly.</p>
+    ${codebox(['prompt: |','  Hello, how are you?','answer: |','  ¡Hola! ¿Cómo estás?','alt: Hola, ¿qué tal?','tags: greetings',''].join('\n'))}
+    <h3>Fields</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Field</th><th>Applies to</th><th>Meaning</th></tr>
+      <tr><td>front / back</td><td>card</td><td>side A and side B</td></tr>
+      <tr><td>prompt / answer</td><td>task</td><td>shown prompt and expected answer</td></tr>
+      <tr><td>alt</td><td>task</td><td>accepted alternatives, separated by ";"</td></tr>
+      <tr><td>hint</td><td>both</td><td>hint text</td></tr>
+      <tr><td>audio</td><td>both</td><td>audio path or URL; repeat for a playlist</td></tr>
+      <tr><td>tags</td><td>both</td><td>comma-separated tags for session filters</td></tr>
+      <tr><td>id</td><td>both</td><td>stable id: keeps progress when text is edited</td></tr>
+      <tr><td>reverse</td><td>card</td><td>true — train both directions</td></tr>
+      <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both</td></tr>
+    </table></div>
+    <h3>Parsing rules</h3>
+    <p>• Cards are separated by a <b>---</b> line.<br>• Headings <b># Карточки</b> / <b># Задания</b> (cards / tasks) switch the block type.<br>• Unknown fields are ignored, the file still parses.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+  {id:'txt', title:'Plain .txt (TSV)', html:`
+    <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
+    ${codebox('hola\thello\nperro\tdog\n\nHello, how are you?\t¡Hola! ¿Cómo estás?\tgreetings\n')}`},
+  {id:'images', title:'Images', html:`
+    <p>Images use markdown syntax in any field. Three ways:</p>
+    ${codebox(['![](img/perro.jpg)                → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
+    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads select the md/txt together with its images — paths are linked for the current session.</p>`},
+  {id:'audio', title:'Audio', html:`
+    <p>The <b>audio:</b> field adds a play button. Paths work like images. Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
+    ${codebox(['pip install edge-tts','','edge-tts --voice es-ES-ElviraNeural --text "Buenos días" --write-media audio/buenos-dias.mp3',''].join('\n'))}
+    <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Name files in Latin letters without spaces, keep them in an audio/ folder.</p>`},
+  {id:'loading', title:'Loading decks', html:`
+    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — md/txt plus nearby media; deck text is stored in the browser (localStorage), media lasts for the session. Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
+  {id:'progress', title:'Progress', html:`
+    <p>Per card the site keeps knew/missed counters, last-seen date and hint count. Session setup offers "Repeat mistakes only". The reset button wipes all progress — export first, it cannot be undone.</p>`},
+  {id:'keys', title:'Keyboard', html:`
+    <div class="tablewrap"><table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td>Space / Enter</td><td>flip card or reveal answer</td></tr>
+      <tr><td>1 / 2</td><td>knew / missed</td></tr>
+      <tr><td>H</td><td>hint (reveals random letters)</td></tr>
+      <tr><td>F</td><td>flip task direction (⇄)</td></tr>
+      <tr><td>Esc</td><td>exit session</td></tr>
+    </table></div>
+    <p>On phones a card flips by tapping anywhere on it.</p>`},
+  {id:'faq', title:'FAQ', html:`
+    <p><b>Images of a local deck disappeared after reload.</b> Device media lives for one session; the text is kept. Put decks on GitHub for permanent images.</p>
+    <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
+    <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
+    <p><b>A task asks in the wrong direction.</b> Press ⇄ or set direction in the file.</p>`}
+  ];
+}
+function instructionView(){
+  const secs=instrSections();
+  return `
+  <div class="top">
+    <h1>${esc(t('instrTitle'))}</h1>
+    <div class="right">${langSwitch()}<a class="btn btn-sm" href="#/">${esc(t('toHome'))}</a></div>
+  </div>
+  <div class="instr">
+    <nav>${secs.map(s=>`<a data-act="goto" data-arg="${s.id}">${esc(s.title)}</a>`).join('')}</nav>
+    <div class="content">${secs.map(s=>`<section id="sec-${s.id}"><h2 style="margin-top:0">${esc(s.title)}</h2>${s.html}</section>`).join('')}</div>
+  </div>`;
+}
+
+/* ============================ actions ============================ */
+async function onFilesChosen(fileList){
+  const files=[...fileList];
+  if(pendingReupload){
+    const id=pendingReupload; pendingReupload=null;
+    const f=files.find(x=>/\.(md|markdown|txt)$/i.test(x.name));
+    if(!f){ toast(t('invalidFile')); rerender(); return; }
+    const text=await f.text();
+    const deck=parseDeck(text, f.name);
+    if(!deck.cards.length){ toast(t('parseEmpty')); rerender(); return; }
+    const m=deckMetas.find(x=>x.id===id);
+    if(m){ m.text=text; m.name=deck.title; m.savedAt=nowIso(); delete m.error; saveDecks(); toast(t('updated')); }
+    registerAssets(id, files);
+    rerender();
+    return;
+  }
+  let added=0;
+  for(const f of files){
+    if(/\.(md|markdown|txt)$/i.test(f.name)){
+      const text=await f.text();
+      const deck=parseDeck(text, f.name);
+      if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); continue; }
+      const id=deckIdForLocal(deck.title);
+      addDeckFromText(text, f.name, 'local', null);
+      registerAssets(id, files);
+      added++;
+    }
+  }
+  if(!added){ toast(t('invalidFile')); }
+  else { toast(added+' × '+t('added')); }
+  rerender();
+}
+function registerAssets(deckId, files){
+  const map={};
+  for(const f of files){
+    if(/\.(md|markdown|txt|json)$/i.test(f.name)) continue;
+    if(!/^(image|audio)\//.test(f.type||'')) continue;
+    const url=URL.createObjectURL(f);
+    if(f.webkitRelativePath) map[f.webkitRelativePath.replace(/^\.\//,'')]=url;
+    map[f.name]=url;
+  }
+  if(Object.keys(map).length) localAssets[deckId]=map;
+}
+const act={
+  'set-lang':arg=>{ settings.lang=arg; LANG=arg; saveSettings(); rerender(); },
+  'open-setup':arg=>{
+    const ids=arg==='all'?deckMetas.map(m=>m.id):[arg];
+    pendingSetup={ ids, mode:'mix', direction:'mixed', onlyMistakes:false, tags:[], size:'' };
+    rerender();
+  },
+  'setup-set':(arg,el)=>{
+    if(el.dataset.kind==='mode') pendingSetup.mode=arg;
+    else pendingSetup.direction=arg;
+    rerender();
+  },
+  'tag':arg=>{
+    const i=pendingSetup.tags.indexOf(arg);
+    if(i>=0) pendingSetup.tags.splice(i,1); else pendingSetup.tags.push(arg);
+    rerender();
+  },
+  'onlymistakes':()=>{ pendingSetup.onlyMistakes=!pendingSetup.onlyMistakes; rerender(); },
+  'setup-start':()=>{
+    const sizeEl=document.getElementById('size-input');
+    const size=sizeEl&&sizeEl.value?Math.max(1,parseInt(sizeEl.value,10)||0):0;
+    const cfg={ deckIds:pendingSetup.ids, mode:pendingSetup.mode, direction:pendingSetup.direction,
+                onlyMistakes:pendingSetup.onlyMistakes, tags:pendingSetup.tags.slice(), size };
+    pendingSetup=null;
+    startSession(cfg);
+    rerender();
+  },
+  'setup-cancel':()=>{ pendingSetup=null; rerender(); },
+  'overlay-close':(arg,el,e)=>{ if(e.target===el){ pendingSetup=null; rerender(); } },
+  'add-url':()=>{
+    const inp=document.getElementById('url-input');
+    const url=inp?inp.value.trim():'';
+    if(!url){ toast(t('noUrl')); return; }
+    addUrl(url);
+  },
+  'upload':()=>{ document.getElementById('file-input').click(); },
+  'reupload':arg=>{ pendingReupload=arg; document.getElementById('file-input').click(); },
+  'refresh':arg=>{ fetchDeckText(arg, false); },
+  'delete':arg=>{
+    if(!confirm(t('confirmDelete'))) return;
+    deckMetas=deckMetas.filter(d=>d.id!==arg);
+    saveDecks(); rerender();
+  },
+  'restore-demo':()=>{
+    if(!deckMetas.some(d=>d.id==='builtin:demo-es')){
+      deckMetas.unshift({ id:'builtin:demo-es', kind:'builtin', name:'Испанский A1 — Приветствия и знакомство', url:'', text:DEMO_DECK, savedAt:nowIso() });
+      saveDecks();
+    }
+    rerender();
+  },
+  'export':()=>{
+    const blob=new Blob([JSON.stringify({app:'kartochki',version:1,exported:nowIso(),progress},null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='kartochki-progress.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  },
+  'import':()=>{ document.getElementById('import-input').click(); },
+  'reset-progress':()=>{
+    if(!confirm(t('confirmReset'))) return;
+    progress={}; saveProgress(); toast(t('progressCleared')); rerender();
+  },
+  'flip-card':()=>{ if(!S||S.done)return; const ex=cur(); if(ex.card.type!=='card')return; S.flipped=!S.flipped; if(S.flipped) autoplayAudio(ex); rerender(); },
+  'reveal':()=>actReveal(),
+  'hint':()=>actHint(),
+  'flip-dir':()=>{ if(S&&!S.done) flipDir(); },
+  'grade':arg=>{ if(!S||S.done)return; const ex=cur(); const can=ex.card.type==='card'?S.flipped:S.revealed; if(!can)return; grade(arg==='ok'); },
+  'play':(arg,el)=>{
+    const btn=el.closest('.stage'); // find current exercise via S
+    if(!S||S.done)return;
+    const ex=cur();
+    const list=ex.card.audio||[];
+    const i=parseInt(arg,10)||0;
+    if(list[i]) playAudioUrl(list[i], ex.deck.metaId);
+  },
+  'exit':()=>{ S=null; pendingSetup=null; if(location.hash==='#/session'||location.hash==='#/') rerender(); else location.hash='#/'; rerender(); },
+  'repeat-mistakes':()=>{
+    const cfg=Object.assign({}, S.config, {onlyMistakes:true});
+    const hadMistakes=S.bad>0;
+    S=null;
+    if(hadMistakes){ startSession(cfg); if(!S){ location.hash='#/'; rerender(); } }
+    else { toast(t('noMistakes')); location.hash='#/'; rerender(); }
+  },
+  'goto':arg=>{
+    const el=document.getElementById('sec-'+arg);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  },
+  'copy':(arg,el)=>{
+    const box=el.closest('.codebox');
+    const pre=box?box.querySelector('pre'):null;
+    if(pre) copyText(pre.textContent);
+  }
+};
+let pendingReupload=null;
+async function addUrl(url){
+  const existing=deckMetas.find(d=>d.id==='url:'+url);
+  if(existing){ fetchDeckText(existing.id, false); return; }
+  toast('…');
+  try{
+    const res=await fetch(url, {cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    const meta=addDeckFromText(text, url, 'url', url);
+    if(meta){ toast(t('added')); rerender(); }
+  }catch(e){
+    toast(t('fetchFail')+': '+e.message);
+  }
+}
+
+/* ============================ router & boot ============================ */
+let rerenderQueued=false;
+function rerender(){
+  if(rerenderQueued) return;
+  rerenderQueued=true;
+  requestAnimationFrame(()=>{
+    rerenderQueued=false;
+    renderApp();
+  });
+}
+function renderApp(){
+  const app=document.getElementById('app');
+  const h=location.hash||'#/';
+  let html;
+  if(h.indexOf('#/session')===0 && S) html=sessionView();
+  else if(h.indexOf('#/instruction')===0) html=instructionView();
+  else html=homeView();
+  if(pendingSetup) html+=setupModalHtml();
+  app.innerHTML=html;
+  bindDynamic();
+}
+function bindDynamic(){
+  const inp=document.getElementById('typed');
+  if(inp){
+    S.typed=inp.value;
+    inp.addEventListener('input',()=>{ S.typed=inp.value; });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); actReveal(); } });
+    inp.focus();
+    const L=inp.value.length;
+    try{ inp.setSelectionRange(L,L); }catch(e){}
+  }
+  const auto=document.getElementById('autoplay');
+  if(auto) auto.addEventListener('change',()=>{ settings.autoplay=auto.checked; saveSettings(); });
+  const fi=document.getElementById('file-input');
+  if(fi) fi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const ii=document.getElementById('import-input');
+  if(ii) ii.addEventListener('change',async e=>{
+    const f=e.target.files[0]; e.target.value='';
+    if(!f) return;
+    try{
+      const data=JSON.parse(await f.text());
+      if(!data || typeof data.progress!=='object') throw new Error('bad');
+      let n=0;
+      for(const k of Object.keys(data.progress)){
+        const v=data.progress[k];
+        if(v && typeof v==='object'){ progress[k]={k:v.k||0,m:v.m||0,h:v.h||0,ls:v.ls||''}; n++; }
+      }
+      saveProgress();
+      toast(t('imported')+' ('+n+')');
+      rerender();
+    }catch(err){ toast(t('invalidFile')); }
+  });
+  const ui=document.getElementById('url-input');
+  if(ui) ui.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); act['add-url'](); } });
+}
+document.addEventListener('click', e=>{
+  const el=e.target.closest('[data-act]');
+  if(!el) return;
+  const fn=act[el.dataset.act];
+  if(fn) fn(el.dataset.arg, el, e);
+});
+document.addEventListener('keydown', e=>{
+  if(!(location.hash||'').startsWith('#/session') || !S || S.done) return;
+  if(pendingSetup) return;
+  const tag=(e.target.tagName||'').toUpperCase();
+  const inInput=(tag==='INPUT'||tag==='TEXTAREA');
+  if(e.code==='Escape'){ act['exit'](); return; }
+  if(inInput){
+    if(e.code==='Enter'){ e.preventDefault(); actReveal(); }
+    return;
+  }
+  const ex=cur();
+  switch(e.code){
+    case 'Space':
+    case 'Enter':
+      e.preventDefault();
+      if(ex.card.type==='card') act['flip-card'](); else actReveal();
+      break;
+    case 'Digit1': case 'Numpad1': act['grade']('ok'); break;
+    case 'Digit2': case 'Numpad2': act['grade']('bad'); break;
+    case 'KeyH': actHint(); break;
+    case 'KeyF': flipDir(); break;
+  }
+});
+window.addEventListener('hashchange', ()=>{ if(location.hash!=='#/session') S=null; renderApp(); });
+function boot(){
+  seedBuiltins();
+  renderApp();
+}
+window.LT={ parseDeck, deckMetas:()=>deckMetas, progress:()=>progress, addDeckFromText, startSession, session:()=>S };
+boot();
+</script>
+</body>
+</html>
