@@ -8,7 +8,7 @@
 :root{
   --bg:#f5f7fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7487;
   --accent:#4f6ef7; --accent-ink:#ffffff; --ok:#2e9e5b; --ok-bg:#e6f6ec;
-  --bad:#d64550; --bad-bg:#fdeaea; --line:#e3e7ef; --chip:#eef1f8;
+  --bad:#d64550; --bad-bg:#fdeaea; --line:#e3e7ef; --chip:#eef1f8; --warn:#b7791f;
   --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
   --radius:14px;
   --font-mono:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono','Roboto Mono',monospace;
@@ -16,7 +16,7 @@
 @media (prefers-color-scheme: dark){
   :root{ --bg:#12151c; --card:#1b202b; --ink:#e8ecf5; --muted:#9aa3b5;
     --accent:#6c86ff; --accent-ink:#0e1420; --ok:#4fc07f; --ok-bg:#1d3327; --bad:#e36672; --bad-bg:#3a2126;
-    --line:#2a3140; --chip:#232a37; --shadow:0 1px 3px rgba(0,0,0,.4); }
+    --line:#2a3140; --chip:#232a37; --warn:#d9a53f; --shadow:0 1px 3px rgba(0,0,0,.4); }
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -115,10 +115,28 @@ table{border-collapse:collapse;width:100%;font-size:.88rem;margin:.6rem 0}
 th,td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
 th{background:var(--chip)}
 .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:10px;font-size:.9rem;z-index:99;max-width:90vw;box-shadow:var(--shadow)}
+/* журнал событий: зелёный — успех, жёлтый — предупреждение, красный — ошибка */
+#log-panel h3{display:flex;align-items:center;gap:.6rem}
+#log-panel h3 .btn{margin-left:auto}
+.log-list{max-height:300px;overflow-y:auto;font-size:.85rem;display:flex;flex-direction:column;gap:2px}
+.log-row{display:flex;gap:.6rem;padding:.3rem .45rem;border-radius:8px;align-items:baseline;word-break:break-word}
+.log-row .log-time{color:var(--muted);font-size:.72rem;flex:0 0 auto}
+.log-ok{color:var(--ok);background:var(--ok-bg)}
+.log-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.log-err{color:var(--bad);background:var(--bad-bg)}
+/* плавающая кнопка «наверх» (инструкция и другие длинные страницы) */
+#to-top{position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:1.25rem;line-height:1;
+  cursor:pointer;box-shadow:var(--shadow);z-index:60;opacity:0;pointer-events:none;
+  transform:translateY(10px);transition:opacity .2s,transform .2s}
+#to-top.show{opacity:1;pointer-events:auto;transform:none}
+#to-top:hover{background:var(--chip)}
+@media (prefers-reduced-motion: reduce){#to-top{transition:none}}
 </style>
 </head>
 <body>
 <div id="app"></div>
+<button id="to-top" type="button" aria-label="Наверх" title="Наверх">↑</button>
 <script>
 'use strict';
 /* =====================================================================
@@ -221,6 +239,12 @@ ru:{
   noCards:'Под эти настройки не нашлось ни одной карточки', noMistakes:'Ошибок нет — тренируйтесь дальше!',
   keysHint:'Пробел / Enter — переворот или показать ответ · 1 — знал · 2 — не знал · H — подсказка · P — повторить аудио · F — сменить направление · Esc — выход · клавиши работают на любой раскладке',
   warnings:'Замечания при разборе', copied:'Скопировано', copy:'Копировать',
+  uploadHintShort:'Кнопки описаны в инструкции («Загрузка на сайт»); медиа подхватывается само, аудио можно не прописывать.',
+  logTitle:'Журнал', logClear:'Очистить', logCleared:'Журнал очищен',
+  logEmpty:'Пока пусто: здесь появятся успехи (зелёным), предупреждения (жёлтым) и ошибки (красным)',
+  logDeleted:'Колода удалена', logMatched:'Аудио привязано автоматически', logUnmatched:'Аудио без пары',
+  logMedia:'Медиа подключено',
+  logParseWarns:'Замечания при разборе', logReuploadGone:'Колода для «Обновить» уже удалена — файл добавлю как новую колоду',
   instrTitle:'Инструкция'
 },
 en:{
@@ -269,6 +293,12 @@ en:{
   noCards:'No cards match these settings', noMistakes:'No mistakes yet — keep going!',
   keysHint:'Space / Enter — flip or reveal · 1 — knew · 2 — missed · H — hint · P — replay audio · F — flip direction · Esc — exit · keys work on any keyboard layout',
   warnings:'Parse warnings', copied:'Copied', copy:'Copy',
+  uploadHintShort:'The buttons are described in the Guide ("Loading decks"); media is picked up automatically, audio does not have to be written in the file.',
+  logTitle:'Event log', logClear:'Clear', logCleared:'Log cleared',
+  logEmpty:'Nothing yet: successes (green), warnings (yellow) and errors (red) will appear here',
+  logDeleted:'Deck deleted', logMatched:'Audio auto-matched', logUnmatched:'Unmatched audio',
+  logMedia:'Media connected',
+  logParseWarns:'Parse warnings', logReuploadGone:'The deck for "Refresh" was already deleted — the file will be added as a new deck',
   instrTitle:'Guide'
 }};
 let LANG = 'ru';
@@ -665,19 +695,20 @@ function mimeFor(name){
   return '';
 }
 // один файл кладётся в индекс под несколькими ключами: путь целиком,
-// путь без корневой папки, имя файла и то же имя в нижнем регистре
-function putMediaKey(map, key, url){
+// путь без корневой папки, имя файла и то же имя в нижнем регистре;
+// force=true — ключи перезаписываются (замена ранее загруженного файла)
+function putMediaKey(map, key, url, force){
   if(!key) return;
   const k=String(key).replace(/^\.\//,'').replace(/\\/g,'/');
-  if(!map[k]) map[k]=url;
+  if(force || !map[k]) map[k]=url;
   if(k.indexOf('/')>=0){
     const tail=k.slice(k.indexOf('/')+1);
-    if(tail && !map[tail]) map[tail]=url;
+    if(tail && (force || !map[tail])) map[tail]=url;
   }
   const base=k.split('/').pop()||k;
-  if(!map[base]) map[base]=url;
+  if(force || !map[base]) map[base]=url;
   const low=base.toLowerCase();
-  if(!map[low]) map[low]=url;
+  if(force || !map[low]) map[low]=url;
 }
 function mediaCount(files){
   let a=0, i=0;
@@ -705,6 +736,30 @@ function rootCohortOf(f){
   if(rp && rp.indexOf('/')>0) return rp.split('/')[0];
   return '';
 }
+// каноническое добавление файла в библиотеку: тот же путь — ЗАМЕНА записи
+// (старый blob-URL освобождается), а не вторая копия. Без этого повторная
+// загрузка той же папки плодила дубликаты, и автосвязка вешала на запись
+// столько кнопок «Аудио1…АудиоN», сколько раз файл загружали за сессию.
+function addMediaItem(path, blob, cohort){
+  const key=String(path||'').replace(/^\.\//,'').replace(/\\/g,'/');
+  const low=key.toLowerCase();
+  const old=low?mediaLib.items.find(x=>String(x.path||'').replace(/^\.\//,'').replace(/\\/g,'/').toLowerCase()===low):null;
+  const url=URL.createObjectURL(blob);
+  putMediaKey(mediaLib.files, key, url, true);
+  putMediaKey(mediaLib.files, blob.name||'', url, true); // имя файла рядом с .md ищется и без папки
+  if(old){ try{ URL.revokeObjectURL(old.url); }catch(e){} mediaLib.items=mediaLib.items.filter(x=>x!==old); }
+  mediaLib.items.push({path:key||String(blob.name||''), url, cohort:cohort||''});
+}
+// итоговые счётчики считаются по записям библиотеки, а не накапливаются:
+// замена дубликата не должна завышать числа
+function recountMedia(){
+  let a=0, i=0;
+  for(const it of mediaLib.items){
+    const base=(it.path||'').split('/').pop()||'';
+    if(AUDIO_EXT.test(base)) a++; else i++;
+  }
+  mediaLib.audio=a; mediaLib.image=i;
+}
 function registerMediaLib(files, defaultCohort){
   const media=[...files].filter(f=>{
     if(f.name.startsWith('.')) return false;
@@ -712,23 +767,28 @@ function registerMediaLib(files, defaultCohort){
     if(/\.(md|markdown|txt|json)$/i.test(f.name)) return false;
     return isMediaFile(f.name, f.type);
   });
-  if(!media.length) return [0,0,0];
+  if(!media.length) return 0;
+  const seen=new Set(); let n=0;
   for(const f of media){
-    const url=URL.createObjectURL(f);
-    putMediaKey(mediaLib.files, f.webkitRelativePath||f.name, url);
-    putMediaKey(mediaLib.files, f.name, url);
-    mediaLib.items.push({path:f.webkitRelativePath||f.name, url, cohort:rootCohortOf(f)||defaultCohort||''});
+    const key=String(f.webkitRelativePath||f.name).replace(/^\.\//,'').replace(/\\/g,'/');
+    const low=key.toLowerCase();
+    if(seen.has(low)) continue; // один и тот же файл дважды в пачке — запись одна
+    seen.add(low);
+    addMediaItem(key, f, rootCohortOf(f)||defaultCohort||'');
+    n++;
   }
-  const [a,i]=mediaCount(media);
-  mediaLib.audio+=a; mediaLib.image+=i;
+  recountMedia();
   mediaRev++;
-  toast(mediaStatsToast(a+i,a,i), 4000);
-  return [a+i,a,i];
+  const [a,i]=[mediaLib.audio, mediaLib.image];
+  toast(mediaStatsToast(n,a,i), 4000);
+  logOk(t('logMedia')+': '+n+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')');
+  return n;
 }
 function clearMediaLib(){
   for(const k of Object.keys(mediaLib.files)){ try{ URL.revokeObjectURL(mediaLib.files[k]); }catch(e){} }
   mediaLib.files={}; mediaLib.items=[]; mediaLib.audio=0; mediaLib.image=0;
   mediaRev++;
+  logOk(t('mediaCleared'));
 }
 // поиск файла в библиотеке: точный путь → имя файла → имя в нижнем регистре
 function mediaFind(src){
@@ -757,6 +817,48 @@ function resolverFor(metaId){
     return src;
   };
 }
+/* ============================ журнал ============================ */
+// Цветной журнал событий вместо разрозненных тостов: успехи — зелёным,
+// предупреждения — жёлтым, ошибки — красным. Хранится в localStorage,
+// чтобы заметить ошибку и после перезагрузки страницы.
+let logEntries=[];
+try{
+  const saved=JSON.parse(localStorage.getItem('kartochki.log')||'[]');
+  if(Array.isArray(saved)) logEntries=saved.filter(e=>e && e.msg && e.lvl);
+}catch(e){}
+function addLog(lvl, msg){
+  logEntries.push({ts:nowIso(), lvl, msg:String(msg)});
+  if(logEntries.length>200) logEntries=logEntries.slice(-200);
+  try{ localStorage.setItem('kartochki.log', JSON.stringify(logEntries)); }catch(e){}
+}
+const logOk=m=>addLog('ok',m), logWarn=m=>addLog('warn',m), logErr=m=>addLog('err',m);
+// сводка автосвязки по списку колод — после подключения медиа или импорта колод
+function logMatchesFor(metas){
+  let hit=false;
+  for(const m of metas){
+    const deck=getDeck(m); if(!deck) continue;
+    const mr=matchResultFor(deck);
+    if(!mr.matchedCount && !mr.unmatched.length) continue;
+    hit=true;
+    if(mr.matchedCount) logOk(t('logMatched')+': '+mr.matchedCount+' — «'+m.name+'»');
+    if(mr.unmatched.length) logWarn(t('logUnmatched')+': '+mr.unmatched.slice(0,6).join(', ')+(mr.unmatched.length>6?'…':'')+' — «'+m.name+'»');
+  }
+  return hit;
+}
+function logRowHtml(e){
+  const cls=e.lvl==='ok'?'log-ok':e.lvl==='warn'?'log-warn':'log-err';
+  const ico=e.lvl==='ok'?'✔':e.lvl==='warn'?'⚠':'✖';
+  const hh=e.ts?e.ts.slice(11,19):'';
+  return `<div class="log-row ${cls}"><span class="log-time">${esc(hh)}</span><span>${ico} ${esc(e.msg)}</span></div>`;
+}
+function logPanelHtml(){
+  const rows=logEntries.slice(-60).reverse().map(logRowHtml).join('');
+  return `<div class="panel" id="log-panel">
+    <h3>${esc(t('logTitle'))}<span class="spacer"></span><button class="btn btn-sm" data-act="clear-log">${esc(t('logClear'))}</button></h3>
+    ${rows?`<div class="log-list">${rows}</div>`:`<p class="muted" style="font-size:.85rem;margin:0">${esc(t('logEmpty'))}</p>`}
+  </div>`;
+}
+
 /* ============================ автосвязка аудио ============================ */
 // Порядок поиска звука для стороны карточки/задания:
 //   1) строки audio:/audio1:/audio2: — ручное указание, всегда главный источник;
@@ -768,14 +870,18 @@ function resolverFor(metaId){
 // Записи считаются при разборе: карточки с 01 отдельно, задания с 01 отдельно, аудиозадания отдельно.
 const matchCache={};
 function audioMatchItems(){
+  // дедуп по «аудио-личности», а не по blob-URL: 01.mp3 и 1.mp3 — один файл,
+  // 01_Собака.mp3 из повторной загрузки — тот же файл. Без этого один и тот же
+  // звук привязывался к записи несколько раз («Аудио1 Аудио2 …», все кнопки играют одно).
   const seen=new Set(); const out=[];
   for(const it of mediaLib.items){
-    if(seen.has(it.url)) continue; seen.add(it.url);
     const base=(it.path||'').split('/').pop()||'';
     if(!AUDIO_EXT.test(base)) continue;
     const dot=base.lastIndexOf('.');
     const stem=dot>0?base.slice(0,dot):base;
     const p=parseAudioStem(stem);
+    const dk=(p.num===null?'name|'+base.toLowerCase():'num|'+p.num+'|'+String(p.rest||'').toLowerCase());
+    if(seen.has(dk)) continue; seen.add(dk);
     out.push({name:base, num:p.num, rest:p.rest, url:it.url, used:false, cohort:it.cohort||''});
   }
   return out;
@@ -838,8 +944,9 @@ function deckPhase3a(state, deck, items){
     else if(!r.s1.length){ r.s1.push(it.url); it.used=true; state.st.resid++; }
   }
 }
-// общий конвейер фаз 2-3 над готовыми state'ами колод (общие items с флагами used)
-function matchPipeline(states, items){
+// общий конвейер фаз 2-3 над готовыми state'ами колод (общие items с флагами used).
+// manual — имена файлов, уже привязанных строками audio:/audio1:/audio2: (см. manualAudioNames)
+function matchPipeline(states, items, manual){
   const anyTextProof=states.some(s=>s.st.deckTextMatched>0);
   // фаза 2: каждый bare-файл NN.ext — лучшему кандидату: cohort → не-builtin → доказанная автосвязка
   for(const it of items){
@@ -855,9 +962,11 @@ function matchPipeline(states, items){
   for(const s of states) deckPhase3a(s, s.deck, items);
   // фаза 3b: нераспознанные файлы — «Аудио без пары» у колоды, имеющей отношение к номеру:
   // своя по cohort, или с доказанной автосвязкой, или (если доказательств нет ни у кого)
-  // первая пользовательская колода с записью этого номера
+  // первая пользовательская колода с записью этого номера. Файлы с ручной привязкой
+  // строками audio: в отчёт не попадают — у них пара есть.
   for(const it of items){
     if(it.used || !it.rest || it.num===null) continue;
+    if(manual && manual.has(it.name.toLowerCase())) continue;
     const cands=states.filter(s=>!s.builtin && s.st.byNum[it.num] &&
       (s.st.deckTextMatched>0 || !anyTextProof || (it.cohort && s.m.cohort===it.cohort)));
     if(!cands.length) continue;
@@ -871,6 +980,20 @@ function matchPipeline(states, items){
     cands[0].unmatched.push(it.name); it.used=true;
   }
 }
+// имена файлов, уже привязанные строками audio:/audio1:/audio2: — по всем колодам
+// (extraDeck — для колоды вне deckMetas, например тестовой). Такие файлы могут
+// автосвязываться с другими записями, но в отчёте «Аудио без пары» шума не создают.
+function manualAudioNames(extraDeck){
+  const set=new Set();
+  const scan=d=>{ for(const c of d.cards){
+    for(const arr of [c.audio, c.audio1, c.audio2]){
+      for(const s of (arr||[])) if(s) set.add(String(s).split('/').pop().toLowerCase());
+    }
+  } };
+  for(const m of deckMetas){ const d=getDeck(m); if(d) scan(d); }
+  if(extraDeck) scan(extraDeck);
+  return set;
+}
 // все колоды считаются в порядке приоритета: пользовательские раньше встроенных,
 // иначе встроенная демо-колода перетянет нумерованные файлы пользователя (01.mp3 → её карточка №1)
 function computeAllMatches(){
@@ -878,13 +1001,17 @@ function computeAllMatches(){
   if(matchCache[revKey]) return;
   const items=audioMatchItems();
   const metas=deckMetas.slice().sort((a,b)=>(a.kind==='builtin'?1:0)-(b.kind==='builtin'?1:0));
+  const manual=manualAudioNames();
   const states=[];
   for(const m of metas){
     const deck=getDeck(m);
     if(!deck){ matchCache[m.id+'|'+mediaRev]={byId:{}, unmatched:[], matchedCount:0}; continue; }
     states.push({m, deck, builtin:m.kind==='builtin', st:deckPhase1(deck, items), unmatched:[]});
   }
-  matchPipeline(states, items);
+  // ручные строки audio: — главный источник: такие файлы фаза 1 (номер+текст) ещё
+  // связывает, но фазы остатков (2/3a/3b) их не расходуют и в «без пары» не пишут
+  for(const it of items) if(manual.has(it.name.toLowerCase())) it.used=true;
+  matchPipeline(states, items, manual);
   for(const s of states){
     const cnt=s.st.deckTextMatched + s.st.bare + s.st.resid;
     for(const r of Object.values(s.st.byId)) delete r.selfText; // служебное поле наружу не идёт
@@ -901,8 +1028,9 @@ function matchResultFor(deck){
     if(!matchCache[key]){ // колода не из deckMetas (тесты) — считаем на клоне файлов
       const items=audioMatchItems().map(it=>Object.assign({}, it));
       const st=deckPhase1(deck, items);
+      for(const it of items) if(manualAudioNames(deck).has(it.name.toLowerCase())) it.used=true;
       const state={m:{id:deck.metaId||'local', cohort:deck.cohort}, deck, builtin:deck.builtinMatch===true, st, unmatched:[]};
-      matchPipeline([state], items);
+      matchPipeline([state], items, manualAudioNames(deck));
       const cnt=st.deckTextMatched + st.bare + st.resid;
       for(const r of Object.values(st.byId)) delete r.selfText;
       matchCache[key]={byId:st.byId, unmatched:state.unmatched, matchedCount:cnt};
@@ -931,6 +1059,10 @@ function addDeckFromText(text, name, kind, url, cohort){
   else if(prev && prev.cohort) meta.cohort=prev.cohort; // перезагрузка без папки не рвёт связь
   delete meta.error;
   upsertDeck(meta);
+  // замечания разбора — в журнал: плитки колод показывают только счётчики
+  if(deck.warnings && deck.warnings.length){
+    logWarn(t('logParseWarns')+': '+deck.warnings.length+' — «'+deck.title+'» · '+deck.warnings.slice(0,3).join(' · ')+(deck.warnings.length>3?'…':''));
+  }
   return meta;
 }
 function demoDeckMeta(){
@@ -975,10 +1107,12 @@ async function fetchDeckText(id, silent){
     const d=parseDeck(m.text, m.url);
     if(d.cards.length) m.name=d.title;
     saveDecks();
+    logOk(t('updated')+' — «'+m.name+'»');
     if(!silent){ toast(t('updated')); rerender(); }
     else rerender();
   }catch(e){
     m.error=e.message; saveDecks();
+    logErr(t('fetchFail')+' — «'+m.name+'»: '+e.message);
     if(!silent){ toast(t('fetchFail')+': '+e.message); rerender(); }
     else rerender();
   }
@@ -1005,7 +1139,11 @@ function audioCandidates(src, metaId){
 const audioMissed={}; // тост «Аудио недоступно» — один раз на путь, без спама
 function tryAudioCand(cands, i, src){
   if(i>=cands.length){
-    if(!audioMissed[src]){ audioMissed[src]=true; toast(t('audioFail')+': '+src); }
+    if(!audioMissed[src]){
+      audioMissed[src]=true;
+      toast(t('audioFail')+': '+src);
+      logErr(t('audioFail')+': '+src); // тот же факт — в журнал
+    }
     return;
   }
   let settled=false;
@@ -1032,8 +1170,11 @@ function audio1Of(c){ return ((c.audio1||[]).concat(c.audio||[])).filter(Boolean
 function audio2Of(c){ return (c.audio2||[]).filter(Boolean); }
 function audioListFor(ex, side){
   const list = side==='2' ? audio2Of(ex.card) : audio1Of(ex.card);
-  if(list.length) return list;
-  return matchedAudioFor(ex, side);
+  const src=list.length?list:matchedAudioFor(ex, side);
+  // страховка от повторов: один файл — одна кнопка
+  const out=[], seen=new Set();
+  for(const u of src){ if(u && !seen.has(u)){ seen.add(u); out.push(u); } }
+  return out;
 }
 
 /* ============================ синтез речи ============================ */
@@ -1082,9 +1223,20 @@ function textOfSide(ex, side){
   if(side!=='2') return c.type==='card'?c.front:c.prompt;
   return c.type==='card'?c.back:c.answer;
 }
+// текст для синтеза речи: маркдаун разметка (картинки, ссылки, html) читается
+// вслух как «img dog jpg» — синтезу отдаётся только чистый текст; для стороны,
+// где кроме картинки ничего нет, остаётся пустота — и озвучки не будет
+function speechText(s){
+  let t=String(s||'');
+  t=t.replace(/!\[[^\]]*\]\([^)]*\)/g,' ');            // ![](...)  — картинки
+  t=t.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1');          // [текст](…) — остаётся текст
+  t=t.replace(/<[^>]+>/g,' ');                         // html-теги
+  t=t.replace(/`{1,3}([^`]*)`{1,3}/g,'$1');            // `code`
+  return t.replace(/\s+/g,' ').trim();
+}
 function speakSide(ex, side){
   if(!ttsAvailable()) return;
-  const text=String(textOfSide(ex, side)||'').trim();
+  const text=speechText(textOfSide(ex, side));
   if(!text) return;
   let prefix=sideLang(ex, side);
   if(!prefix) prefix=/[\u0400-\u04FF]/.test(text)?'ru':'en';
@@ -1248,22 +1400,15 @@ function deckStatsHtml(m){
   const deck=getDeck(m);
   const nc=deck?deck.cards.filter(c=>c.type==='card').length:0;
   const nt=deck?deck.cards.filter(c=>c.type==='task').length:0;
-  let k=0, mm=0, warn='';
+  let k=0, mm=0;
   if(deck){
     for(const c of deck.cards){ const r=progress[progKey(m.id,c.id)]; if(r){ k+=r.k; mm+=r.m; } }
-    if(deck.warnings.length){
-      warn=`<div class="err" title="${esc(deck.warnings.join('\n'))}">${esc(t('warnings'))}: ${deck.warnings.length} (первое: ${esc(deck.warnings[0])})</div>`;
-    }
-    const mr=matchResultFor(deck);
-    if(m.kind!=='builtin' && mr.unmatched.length){
-      warn+=`<div class="muted" style="font-size:.82rem;margin-top:4px">🔊 ${esc(t('unmatched'))}: ${esc(mr.unmatched.slice(0,4).join(', '))}${mr.unmatched.length>4?'…':''}</div>`;
-    }
   }
+  // плитка — только счётчики и знал/не знал; замечания разбора, «Аудио без пары»
+  // и ошибки загрузки живут в журнале (панель «Журнал» на главной)
   const badge=m.kind==='builtin'?t('badgeBuiltin'):m.kind==='url'?t('badgeUrl'):t('badgeLocal');
-  const err=m.error?`<div class="err">${esc(t('fetchFail'))}: ${esc(m.error)}</div>`:'';
   return `<div class="deck">
     <div><span class="name">${esc(m.name)}</span><span class="badge">${esc(badge)}</span></div>
-    ${err}${warn}
     <div class="meta"><span>${nc} ${esc(t('cardsCount'))}</span><span>${nt} ${esc(t('tasksCount'))}</span><span>${esc(t('statKnew'))}: ${k}</span><span>${esc(t('statMissed'))}: ${mm}</span></div>
     <div class="row">
       <button class="btn btn-primary btn-sm" data-act="open-setup" data-arg="${esc(m.id)}">${esc(t('train'))}</button>
@@ -1283,10 +1428,30 @@ function homeView(){
     <h1>${esc(t('appName'))} <span class="muted" style="font-size:.8rem;font-weight:400">${esc(t('tagline'))}</span></h1>
     <div class="right">${langSwitch()}<a class="btn btn-sm" href="#/instruction">${esc(t('navInstruction'))}</a></div>
   </div>
+  <div class="panel">
+    <h3>${esc(t('settingsTitle'))}</h3>
+    <div class="row" style="gap:.5rem;align-items:center">
+      <span style="white-space:nowrap">${esc(t('fontSize'))}</span>
+      ${fontScaleSel()}
+      <span class="spacer"></span>
+      <span style="white-space:nowrap">${esc(t('tts'))}</span>
+      <button class="btn btn-sm ${settings.tts?'':'off'}" data-act="toggle-tts" title="${esc(settings.tts?t('ttsOn'):t('ttsOff'))}" aria-pressed="${settings.tts?'true':'false'}">🗣</button>
+      <span style="white-space:nowrap">${esc(t('volume'))}</span>
+      <input type="range" id="vol" min="0" max="1" step="0.05" value="${settings.volume}" aria-label="${esc(t('volume'))}">
+      <button class="btn btn-sm ${settings.muted?'off':''}" data-act="toggle-mute" title="${esc(settings.muted?t('unmute'):t('mute'))}" aria-pressed="${settings.muted?'true':'false'}">${settings.muted?'🔇':'🔊'}</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <button class="btn" data-act="export">${esc(t('exportProgress'))}</button>
+      <button class="btn" data-act="import">${esc(t('importProgress'))}</button>
+      <button class="btn btn-danger" data-act="reset-progress">${esc(t('resetProgress'))}</button>
+    </div>
+    <input type="file" id="import-input" class="hidden" accept=".json,application/json">
+  </div>
   <h2>${esc(t('myDecks'))}</h2>
   ${deckMetas.length?`<div class="grid">${decks}</div>`:`<div class="panel muted">${esc(t('empty'))}</div>`}
   ${demoMissing?`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="restore-demo">${esc(t('restoreDemo'))}</button></div>`:''}
   ${deckMetas.length>1?`<div class="row" style="margin-top:14px"><button class="btn" data-act="open-setup" data-arg="all">${esc(t('trainAll'))}</button></div>`:''}
+  ${logPanelHtml()}
   <div class="panel">
     <h3>${esc(t('addUrlTitle'))}</h3>
     <div class="row">
@@ -1301,7 +1466,7 @@ function homeView(){
       <button class="btn" id="folder-btn" data-act="upload-folder">${esc(t('folderBtn'))}</button>
       <button class="btn" id="zip-btn" data-act="upload-zip">${esc(t('zipBtn'))}</button>
     </div>
-    <p class="muted" style="font-size:.85rem">${esc(t('uploadHint'))}</p>
+    <p class="muted" style="font-size:.85rem;margin-bottom:0">${esc(t('uploadHintShort'))}</p>
     <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,.zip,image/*,audio/*">
     <input type="file" id="folder-input" class="hidden" webkitdirectory multiple>
     <input type="file" id="zip-input" class="hidden" accept=".zip,application/zip,application/x-zip-compressed">
@@ -1309,27 +1474,6 @@ function homeView(){
   <div class="panel">
     <h3>${esc(t('mediaTitle'))}</h3>
     ${mediaLibPanelInner()}
-  </div>
-  <div class="panel">
-    <h3>${esc(t('settingsTitle'))}</h3>
-    <div class="row" style="gap:.5rem;align-items:center">
-      <span style="white-space:nowrap">${esc(t('fontSize'))}</span>
-      ${fontScaleSel()}
-    </div>
-    <div class="row" style="gap:.5rem;align-items:center;margin-top:12px">
-      <span style="white-space:nowrap">${esc(t('tts'))}</span>
-      <button class="btn btn-sm ${settings.tts?'':'off'}" data-act="toggle-tts" title="${esc(settings.tts?t('ttsOn'):t('ttsOff'))}" aria-pressed="${settings.tts?'true':'false'}">🗣</button>
-      <span class="spacer"></span>
-      <span style="white-space:nowrap">${esc(t('volume'))}</span>
-      <input type="range" id="vol" min="0" max="1" step="0.05" value="${settings.volume}" aria-label="${esc(t('volume'))}">
-      <button class="btn btn-sm ${settings.muted?'off':''}" data-act="toggle-mute" title="${esc(settings.muted?t('unmute'):t('mute'))}" aria-pressed="${settings.muted?'true':'false'}">${settings.muted?'🔇':'🔊'}</button>
-    </div>
-    <div class="row" style="margin-top:12px">
-      <button class="btn" data-act="export">${esc(t('exportProgress'))}</button>
-      <button class="btn" data-act="import">${esc(t('importProgress'))}</button>
-      <button class="btn btn-danger" data-act="reset-progress">${esc(t('resetProgress'))}</button>
-    </div>
-    <input type="file" id="import-input" class="hidden" accept=".json,application/json">
   </div>`;
 }
 function mediaLibPanelInner(){
@@ -1382,7 +1526,7 @@ function rich(text, ex){
 function audioRowHtml(ex, side){
   const s=side||'1';
   const list=audioListFor(ex, s);
-  const canTts=!list.length && ttsAvailable() && String(textOfSide(ex, s)||'').trim();
+  const canTts=!list.length && ttsAvailable() && speechText(textOfSide(ex, s));
   if(!list.length && !canTts) return '';
   const buttons=list.map((u,i)=>`<button class="btn btn-sm" data-act="play" data-arg="${s}:${i}" title="${esc(u)}">🔊 ${esc(t('audio'))}${list.length>1?' '+(i+1):''}</button>`).join('');
   const speakBtn=canTts?`<button class="btn btn-sm" data-act="speak" data-arg="${s}" title="${esc(t('ttsOn'))}">🔊 ${esc(t('audio'))}</button>`:'';
@@ -1572,7 +1716,9 @@ function instrSections(){
     <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы удобно складывать в папку рядом с колодой; при локальной работе имена могут быть любыми — латиница без пробелов нужна только если планируете выкладывать файлы в репозиторий.</p>`},
   {id:'loading', title:'Загрузка на сайт', html:`
     <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: сайт скачивает его и запоминает в браузере, дальше работает даже оффлайн; кнопка «Обновить» подтягивает правки. <b>Файлы с устройства</b> — три кнопки: «Выбрать файлы» (колоды .md/.txt вместе с медиа рядом, или сразу .zip), «Выбрать папку» (целая папка — колоды и медиа найдутся сами), «Загрузить архив» (.zip: колоды внутри импортируются, аудио и картинки распаковываются в память). Всё медиа предзагружается в общую медиа-библиотеку — до перезагрузки страницы оно обслуживает все колоды, включая колоды по ссылке: тексты колод могут лежать на GitHub, а аудио и картинки — на вашем диске. Состояние библиотеки видно на главной в панели «Медиа-библиотека», кнопка «Отключить» освобождает память. Тексты колод сохраняются в браузере (localStorage).</p>
-    <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>`},
+    <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>
+    <h3>Как связываются файлы при загрузке с устройства</h3>
+    <p>${esc(t('uploadHint'))}</p>`},
   {id:'progress', title:'Прогресс', html:`
     <p>По каждой карточке сайт помнит счётчики «знал / не знал», дату последнего показа и число подсказок. На плитке колоды видна сводка. В начале сессии можно выбрать «Повторить только ошибки» — тогда пойдут лишь карточки с ошибками. Кнопка сброса удаляет весь прогресс (осторожно: восстановить нельзя, заранее сделайте экспорт).</p>`},
   {id:'keys', title:'Горячие клавиши', html:`
@@ -1664,7 +1810,9 @@ function instrSectionsEn(){
     ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media 01_Good_morning_how_are_you.mp3',''].join('\n'))}
     <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Keep files in a folder next to the deck; for local use names can be anything — Latin letters without spaces matter only if you plan to push the files into a repository.</p>`},
   {id:'loading', title:'Loading decks', html:`
-    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — three buttons: "Choose files" (.md/.txt decks together with nearby media, or a .zip right away), "Choose folder" (a whole folder — decks and media are found for you), "Load archive" (.zip: decks inside are imported, audio and images are unpacked into memory). All media is preloaded into the shared media library — until the page is reloaded it serves every deck, link-based decks included: deck texts can live on GitHub while audio and images stay on your disk. The library state is visible on the home screen in the "Media library" panel; the "Disconnect media" button frees the memory. Deck text is stored in the browser (localStorage). Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>`},
+    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the site downloads and caches them in the browser, so they work offline; "Refresh" pulls edits. <b>Device files</b> — three buttons: "Choose files" (.md/.txt decks together with nearby media, or a .zip right away), "Choose folder" (a whole folder — decks and media are found for you), "Load archive" (.zip: decks inside are imported, audio and images are unpacked into memory). All media is preloaded into the shared media library — until the page is reloaded it serves every deck, link-based decks included: deck texts can live on GitHub while audio and images stay on your disk. The library state is visible on the home screen in the "Media library" panel; the "Disconnect media" button frees the memory. Deck text is stored in the browser (localStorage). Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>
+    <h3>How device files are matched</h3>
+    <p>${esc(t('uploadHint'))}</p>`},
   {id:'progress', title:'Progress', html:`
     <p>Per card the site keeps knew/missed counters, last-seen date and hint count. Session setup offers "Repeat mistakes only". The reset button wipes all progress — export first, it cannot be undone.</p>`},
   {id:'keys', title:'Keyboard', html:`
@@ -1709,38 +1857,59 @@ async function onFilesChosen(fileList){
   if(pendingReupload){
     const id=pendingReupload; pendingReupload=null;
     const f=files.find(x=>/\.(md|markdown|txt)$/i.test(x.name));
-    if(!f){ toast(t('invalidFile')); rerender(); return; }
-    const text=await f.text();
-    const deck=parseDeck(text, f.name);
-    if(!deck.cards.length){ toast(t('parseEmpty')); rerender(); return; }
     const m=deckMetas.find(x=>x.id===id);
-    if(m){ m.text=text; m.name=deck.title; m.savedAt=nowIso(); delete m.error; saveDecks(); toast(t('updated')); }
-    registerAssets(id, files);
-    registerMediaLib(files);
-    rerender();
-    return;
+    if(f && m){
+      const text=await f.text();
+      const deck=parseDeck(text, f.name);
+      if(!deck.cards.length){ toast(t('parseEmpty')); logErr(t('parseEmpty')+': '+f.name); rerender(); return; }
+      m.text=text; m.name=deck.title; m.savedAt=nowIso(); delete m.error; saveDecks();
+      registerAssets(id, files);
+      const nmedia=registerMediaLib(files);
+      logOk(t('updated')+' — «'+m.name+'»');
+      if(nmedia) logMatchesFor([m]);
+      toast(t('updated'));
+      rerender();
+      return;
+    }
+    // колода для «Обновить» уже удалена (или выбраны только медиа) —
+    // раньше файл молча терялся: идём в обычный импорт ниже
+    if(f && !m) logWarn(t('logReuploadGone'));
   }
-  registerMediaLib(files);
-  let added=0, zips=0; const failed=[];
+  let added=0, zips=0; const failed=[]; const addedMetas=[]; const cohorts=new Set(); let nmedia=0;
   // cohort мультивыбора: те же файлы, выбранные повторно, дают тот же id (fnv по путям)
   const selId='sel:'+fnv(files.map(f=>f.webkitRelativePath||f.name).sort().join('|'));
   for(const f of files){
     try{
       if(f.name.startsWith('.')) continue;
+      if(isMediaFile(f.name, f.type)) cohorts.add(rootCohortOf(f)||selId);
       if(/\.zip$/i.test(f.name)){ zips++; await importZip(f); continue; }
       if(/\.(md|markdown|txt)$/i.test(f.name)){
         const text=await f.text();
         const deck=parseDeck(text, f.name);
-        if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); continue; }
+        if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); logErr(t('parseEmpty')+': '+f.name); continue; }
         const id=deckIdForLocal(deck.title);
-        addDeckFromText(text, f.name, 'local', null, rootCohortOf(f)||selId);
+        const meta=addDeckFromText(text, f.name, 'local', null, rootCohortOf(f)||selId);
         registerAssets(id, files);
+        if(meta){
+          addedMetas.push(meta);
+          const nc=deck.cards.filter(c=>c.type==='card').length;
+          const nt=deck.cards.filter(c=>c.type==='task').length;
+          logOk(t('added')+' — «'+meta.name+'»: '+nc+' '+t('cardsCount')+', '+nt+' '+t('tasksCount'));
+        }
         added++;
       }
-    }catch(e){ failed.push(f.name+' — '+(e && e.message ? e.message : 'ошибка')); }
+    }catch(e){ failed.push(f.name+' — '+(e && e.message ? e.message : 'ошибка')); logErr(f.name+' — '+(e && e.message ? e.message : 'ошибка')); }
   }
+  nmedia=registerMediaLib(files);
   if(!added && !zips){ toast(failed.length?t('invalidFile')+' ('+failed[0]+')':t('invalidFile')); }
   else if(added){ toast(added+' × '+t('added')+(failed.length?' · ⚠ '+failed.length+' '+(LANG==='ru'?'файлов с ошибкой':'failed')+': '+failed[0]:'')); }
+  // автосвязка логируется после того, как подключено и медиа, и колоды
+  if(nmedia){
+    const targets=new Map();
+    for(const m of addedMetas) targets.set(m.id, m);
+    for(const ch of cohorts) for(const m of deckMetas) if(m.cohort===ch) targets.set(m.id, m);
+    logMatchesFor([...targets.values()]);
+  }
   rerender(); // медиа-библиотека видна сразу, даже если разбор колод не удался
 }
 function registerAssets(deckId, files){
@@ -1838,7 +2007,7 @@ async function importZip(file){
   zipBusy=true;
   toast(t('zipImporting'));
   try{
-    if(!('DecompressionStream' in window)){ toast(t('zipUnsupported')); return; }
+    if(!('DecompressionStream' in window)){ toast(t('zipUnsupported')); logErr(t('zipUnsupported')); return; }
     const entries=await readZip(file);
     const zipCohort=(file.name||'').replace(/\.zip$/i,''); // файлы архива — cohort имени zip
     const media=[], decks=[];
@@ -1849,35 +2018,44 @@ async function importZip(file){
       if(/\.(md|markdown|txt)$/i.test(base)) decks.push({name:base, text:await en.blob.text()});
       else if(isMediaFile(base, en.blob.type)) media.push({name, blob:en.blob});
     }
-    for(const m of media){
-      const url=URL.createObjectURL(m.blob);
-      putMediaKey(mediaLib.files, m.name, url);
-      putMediaKey(mediaLib.files, m.name.split('/').pop()||m.name, url);
-      mediaLib.items.push({path:m.name, url, cohort:zipCohort});
-    }
-    const [a,i]=mediaCount(media);
-    mediaLib.audio+=a; mediaLib.image+=i;
+    for(const m of media) addMediaItem(m.name, m.blob, zipCohort);
+    recountMedia();
     mediaRev++;
-    let added=0; const failed=[];
+    let added=0; const failed=[]; const addedMetas=[];
     for(const d of decks){
       try{
         const deck=parseDeck(d.text, d.name);
         if(!deck.cards.length) continue;
-        addDeckFromText(d.text, d.name, 'local', null, zipCohort);
+        const meta=addDeckFromText(d.text, d.name, 'local', null, zipCohort);
+        if(meta) addedMetas.push(meta);
         added++;
       }catch(e){ failed.push(d.name+' — '+(e && e.message ? e.message : 'ошибка')); }
     }
-    if(!media.length && !added){ toast(failed.length?t('zipFail')+': '+failed.join('; '):t('zipEmpty')); return; }
+    if(!media.length && !added){
+      const msg=failed.length?t('zipFail')+': '+failed.join('; '):t('zipEmpty');
+      toast(msg); logErr(msg);
+      return;
+    }
     const parts=[];
-    if(media.length) parts.push(media.length+' '+(LANG==='ru'?'медиа':'media')+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')');
+    const [za,zi]=mediaCount(media); // числа тоста — про этот архив
+    if(media.length) parts.push(media.length+' '+(LANG==='ru'?'медиа':'media')+' ('+za+' '+t('mediaAudio')+' · '+zi+' '+imgWord(zi)+')');
     if(added) parts.push(added+' '+(LANG==='ru'?plural(added,'колода','колоды','колод'):(added===1?'deck':'decks')));
     // пара первых имён — чтобы кодировку видно было сразу, а не по звуку
     const sample=media.slice(0,2).map(m=>m.name.split('/').pop()).join(', ');
     if(sample) parts.push('«'+sample+(media.length>2?'…':'')+'»');
     if(failed.length) parts.push('⚠ '+failed.length+' '+(LANG==='ru'?'колод не прочитано':'decks failed')+': '+failed[0]);
     toast(t('zipImported')+': '+parts.join(', '), 5000);
+    logOk(t('zipImported')+': '+parts.join(', '));
+    if(media.length){
+      const targets=new Map();
+      for(const m of addedMetas) targets.set(m.id, m);
+      for(const m of deckMetas) if(m.cohort===zipCohort) targets.set(m.id, m);
+      logMatchesFor([...targets.values()]);
+    }
   }catch(e){
-    toast(t('zipFail')+(e && e.message ? ': '+e.message : ''));
+    const msg=t('zipFail')+(e && e.message ? ': '+e.message : '');
+    toast(msg);
+    logErr(msg);
   }finally{
     zipBusy=false;
     rerender(); // медиа-библиотека обновляется на экране даже при частичной ошибке
@@ -1929,7 +2107,10 @@ const act={
   'refresh':arg=>{ fetchDeckText(arg, false); },
   'delete':arg=>{
     if(!confirm(t('confirmDelete'))) return;
+    const gone=deckMetas.find(d=>d.id===arg);
     deckMetas=deckMetas.filter(d=>d.id!==arg);
+    pendingReupload=null; // «Обновить» этой колоды больше не ждём — иначе он молча съедал следующую загрузку
+    if(gone) logOk(t('logDeleted')+': «'+gone.name+'»');
     saveDecks(); rerender();
   },
   'restore-demo':()=>{
@@ -1948,7 +2129,13 @@ const act={
   'import':()=>{ document.getElementById('import-input').click(); },
   'reset-progress':()=>{
     if(!confirm(t('confirmReset'))) return;
-    progress={}; saveProgress(); toast(t('progressCleared')); rerender();
+    progress={}; saveProgress(); toast(t('progressCleared')); logOk(t('progressCleared')); rerender();
+  },
+  'clear-log':()=>{
+    logEntries=[];
+    try{ localStorage.removeItem('kartochki.log'); }catch(e){}
+    toast(t('logCleared'));
+    rerender();
   },
   'flip-card':()=>{ if(!S||S.done)return; const ex=cur(); if(ex.card.type!=='card')return; S.flipped=!S.flipped; S.flipAnim=S.flipped?'fwd':'bwd'; playFaceAudio(ex, currentFaceSide(ex)); rerender(); },
   'reveal':()=>actReveal(),
@@ -1991,9 +2178,10 @@ async function addUrl(url){
     if(!res.ok) throw new Error('HTTP '+res.status);
     const text=await res.text();
     const meta=addDeckFromText(text, url, 'url', url);
-    if(meta){ toast(t('added')); rerender(); }
+    if(meta){ toast(t('added')); logOk(t('added')+' — «'+meta.name+'»'); rerender(); }
   }catch(e){
     toast(t('fetchFail')+': '+e.message);
+    logErr(t('fetchFail')+' — '+url+': '+e.message);
   }
 }
 
@@ -2057,11 +2245,13 @@ function bindDynamic(){
       }
       saveProgress();
       toast(t('imported')+' ('+n+')');
+      logOk(t('imported')+' ('+n+')');
       rerender();
-    }catch(err){ toast(t('invalidFile')); }
+    }catch(err){ toast(t('invalidFile')); logErr(t('invalidFile')); }
   });
   const ui=document.getElementById('url-input');
   if(ui) ui.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); act['add-url'](); } });
+  bindToTop();
 }
 document.addEventListener('click', e=>{
   const el=e.target.closest('[data-act]');
@@ -2105,6 +2295,17 @@ document.addEventListener('keydown', e=>{
   }
 });
 window.addEventListener('hashchange', ()=>{ if(location.hash!=='#/session'){ S=null; stopSpeech(); } renderApp(); });
+// плавающая кнопка «наверх»: появляется после прокрутки, работает на любой странице
+function bindToTop(){
+  const tt=document.getElementById('to-top');
+  if(!tt || tt.dataset.bound) return;
+  tt.dataset.bound='1';
+  tt.addEventListener('click',()=>{ try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); } });
+  const upd=()=>{ tt.classList.toggle('show',(window.scrollY||document.documentElement.scrollTop||0)>300); };
+  window.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('hashchange',()=>setTimeout(upd,50));
+  upd();
+}
 function applyFontScale(){
   document.documentElement.style.fontSize=Math.round(16*(settings.fontScale||1)*100)/100+'px';
 }
