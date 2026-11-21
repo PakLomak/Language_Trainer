@@ -698,7 +698,14 @@ function mediaStatsToast(n,a,i){
   if(!n) return '';
   return t('mediaLoaded')+': '+n+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')';
 }
-function registerMediaLib(files){
+// cohort — «источник загрузки» (корень папки / имя zip / метка мультивыбора):
+// медиа и колода из одного источника связываются между собой в первую очередь
+function rootCohortOf(f){
+  const rp=String(f.webkitRelativePath||'');
+  if(rp && rp.indexOf('/')>0) return rp.split('/')[0];
+  return '';
+}
+function registerMediaLib(files, defaultCohort){
   const media=[...files].filter(f=>{
     if(f.name.startsWith('.')) return false;
     if(/\.zip$/i.test(f.name)) return false;
@@ -710,7 +717,7 @@ function registerMediaLib(files){
     const url=URL.createObjectURL(f);
     putMediaKey(mediaLib.files, f.webkitRelativePath||f.name, url);
     putMediaKey(mediaLib.files, f.name, url);
-    mediaLib.items.push({path:f.webkitRelativePath||f.name, url});
+    mediaLib.items.push({path:f.webkitRelativePath||f.name, url, cohort:rootCohortOf(f)||defaultCohort||''});
   }
   const [a,i]=mediaCount(media);
   mediaLib.audio+=a; mediaLib.image+=i;
@@ -769,62 +776,100 @@ function audioMatchItems(){
     const dot=base.lastIndexOf('.');
     const stem=dot>0?base.slice(0,dot):base;
     const p=parseAudioStem(stem);
-    out.push({name:base, num:p.num, rest:p.rest, url:it.url, used:false});
+    out.push({name:base, num:p.num, rest:p.rest, url:it.url, used:false, cohort:it.cohort||''});
   }
   return out;
 }
-// матчинг одной колоды по общему списку файлов. Файлы потребляются глобально (it.used):
-// фаза 1 — текстовые привязки (номер+текст, имя без номера) у ВСЕХ колод по приоритету,
-// фаза 2 (внутри этой же функции) — bare-файлы NN.ext и остаточные.
-function runDeckMatch(deck, items){
-  const byId={}, unmatched=[]; let matchedCount=0;
-  if(!items.length) return {byId, unmatched, matchedCount};
+// Трёхфазный глобальный матчинг. Файлы потребляются глобально (it.used):
+//   фаза 1 — текстовые привязки (номер+текст, имя без номера) у ВСЕХ колод; текстовое
+//            совпадение — «доказательство принадлежности» файла колоде;
+//   фаза 2 — bare-файлы NN.ext (общая озвучка обеих сторон): приоритет у колод с доказанной
+//            автосвязкой; builtin-колоды (демо) не претендуют вовсе;
+//   фаза 3 — остатки: одиночный нераспознанный файл номера встаёт на свободную сторону записи,
+//            уже имеющей текстовый файл; нераспознанные файлы попадают в «Аудио без пары»
+//            только у колоды, имеющей отношение к номеру (доказанная автосвязка, или во всей
+//            системе нет ни одной такой колоды). Без этого правила файлы одной колоды
+//            «приписывались» соседней, у которой совпал лишь номер записи.
+function deckPhase1(deck, items){
   const wc=s=>s?s.split(' ').length:0;
-  // фаза 1: только совпадение по тексту — доказательство, что файл принадлежит этой колоде
+  const byId={}; const byNum={}; let deckTextMatched=0;
   for(const c of deck.cards){
     if(c.audioTask || !c.num) continue;
-    const r={s1:[], s2:[]}; byId[c.id]=r;
+    const r={s1:[], s2:[]}; byId[c.id]=r; byNum[c.num]=r;
     const t1=matchTextFor(c,'1'), t2=matchTextFor(c,'2');
     const numItems=items.filter(it=>it.num===c.num && !it.used && it.rest);
     for(const it of numItems){
-      if(textPrefixMatch(it.rest, t1)){ r.s1.push(it.url); it.used=true; matchedCount++; }
-      else if(textPrefixMatch(it.rest, t2)){ r.s2.push(it.url); it.used=true; matchedCount++; }
+      if(textPrefixMatch(it.rest, t1)){ r.s1.push(it.url); it.used=true; deckTextMatched++; }
+      else if(textPrefixMatch(it.rest, t2)){ r.s2.push(it.url); it.used=true; deckTextMatched++; }
     }
     // связка по имени без номера — только для коротких текстов и пустой стороны
     if(!r.s1.length && wc(t1)<=6){
       const hit=items.find(it=>!it.used && it.num===null && it.rest && it.rest===t1);
-      if(hit){ r.s1.push(hit.url); hit.used=true; matchedCount++; }
+      if(hit){ r.s1.push(hit.url); hit.used=true; deckTextMatched++; }
     }
     if(!r.s2.length && wc(t2)<=6){
       const hit=items.find(it=>!it.used && it.num===null && it.rest && it.rest===t2);
-      if(hit){ r.s2.push(hit.url); hit.used=true; matchedCount++; }
+      if(hit){ r.s2.push(hit.url); hit.used=true; deckTextMatched++; }
     }
     r.selfText=r.s1.length+r.s2.length; // текстовое доказательство принадлежности
   }
-  // фаза 2: bare-файлы NN.ext — общая озвучка карточки (обе стороны).
-  // Остаточные (номер совпал, текст — нет): если запись уже получила текстовый файл,
-  // свободная сторона забирает одиночный остаток; иначе файлы попадают в «Аудио без пары».
-  // Сюда приходят только файлы, не занятые текстовыми привязками других колод.
+  return {byId, byNum, deckTextMatched, bare:0, resid:0};
+}
+// приоритет колоды-кандидата для конкретного файла: сначала «своя» по cohort (файлы,
+// загруженные вместе с колодой — одна папка или один zip), затем не-builtin, затем по
+// числу текстовых привязок; cohort нет у всех — как раньше, по доказательствам и порядку
+function deckCandidateCompare(a, b, cohort){
+  const ca=(cohort && a.m.cohort===cohort)?0:1, cb=(cohort && b.m.cohort===cohort)?0:1;
+  if(ca!==cb) return ca-cb;
+  const av=a.builtin?1:0, bv=b.builtin?1:0;
+  if(av!==bv) return av-bv;
+  return (b.st.deckTextMatched||0)-(a.st.deckTextMatched||0);
+}
+// одиночный остаток номера — на свободную сторону записи, у которой другая сторона уже занята текстовым файлом
+function deckPhase3a(state, deck, items){
+  if(state.builtin) return;
   for(const c of deck.cards){
-    const r=byId[c.id]; if(!r) continue;
-    const numItems=items.filter(it=>it.num===c.num && !it.used);
-    if(!numItems.length) continue;
-    for(const it of numItems){
-      if(!it.rest){ r.s1.push(it.url); r.s2.push(it.url); it.used=true; matchedCount++; continue; }
-    }
-    const rest=numItems.filter(it=>it.used===false && it.rest);
-    if(rest.length===1 && r.selfText>0){
-      const it=rest[0];
-      if(r.s1.length && !r.s2.length){ r.s2.push(it.url); matchedCount++; }
-      else if(!r.s1.length){ r.s1.push(it.url); matchedCount++; }
-      else unmatched.push(it.name);
-      it.used=true;
-    } else if(rest.length){
-      for(const it of rest){ unmatched.push(it.name); it.used=true; }
-    }
+    const r=state.st.byId[c.id]; if(!r) continue;
+    if(!(r.selfText>0)) continue;
+    const rest=items.filter(it=>it.num===c.num && !it.used && it.rest);
+    if(rest.length!==1) continue;
+    const it=rest[0];
+    if(r.s1.length && !r.s2.length){ r.s2.push(it.url); it.used=true; state.st.resid++; }
+    else if(!r.s1.length){ r.s1.push(it.url); it.used=true; state.st.resid++; }
   }
-  for(const r of Object.values(byId)) delete r.selfText; // служебное поле наружу не идёт
-  return {byId, unmatched, matchedCount};
+}
+// общий конвейер фаз 2-3 над готовыми state'ами колод (общие items с флагами used)
+function matchPipeline(states, items){
+  const anyTextProof=states.some(s=>s.st.deckTextMatched>0);
+  // фаза 2: каждый bare-файл NN.ext — лучшему кандидату: cohort → не-builtin → доказанная автосвязка
+  for(const it of items){
+    if(it.used || it.rest || it.num===null) continue;
+    const cands=states.filter(s=>!s.builtin && s.st.byNum[it.num]);
+    if(!cands.length) continue;
+    cands.sort((a,b)=>deckCandidateCompare(a,b,it.cohort));
+    const s=cands[0], r=s.st.byNum[it.num];
+    r.s1.push(it.url); r.s2.push(it.url); it.used=true; s.st.bare++;
+  }
+  // фаза 3a: одиночный остаток номера — на свободную сторону записи, у которой
+  // другая сторона уже занята текстовым файлом
+  for(const s of states) deckPhase3a(s, s.deck, items);
+  // фаза 3b: нераспознанные файлы — «Аудио без пары» у колоды, имеющей отношение к номеру:
+  // своя по cohort, или с доказанной автосвязкой, или (если доказательств нет ни у кого)
+  // первая пользовательская колода с записью этого номера
+  for(const it of items){
+    if(it.used || !it.rest || it.num===null) continue;
+    const cands=states.filter(s=>!s.builtin && s.st.byNum[it.num] &&
+      (s.st.deckTextMatched>0 || !anyTextProof || (it.cohort && s.m.cohort===it.cohort)));
+    if(!cands.length) continue;
+    cands.sort((a,b)=>{
+      const ca=(it.cohort && a.m.cohort===it.cohort)?0:1, cb=(it.cohort && b.m.cohort===it.cohort)?0:1;
+      if(ca!==cb) return ca-cb;
+      const pa=(a.st.deckTextMatched>0)?0:1, pb=(b.st.deckTextMatched>0)?0:1;
+      if(pa!==pb) return pa-pb;
+      return (b.st.deckTextMatched||0)-(a.st.deckTextMatched||0);
+    });
+    cands[0].unmatched.push(it.name); it.used=true;
+  }
 }
 // все колоды считаются в порядке приоритета: пользовательские раньше встроенных,
 // иначе встроенная демо-колода перетянет нумерованные файлы пользователя (01.mp3 → её карточка №1)
@@ -833,9 +878,17 @@ function computeAllMatches(){
   if(matchCache[revKey]) return;
   const items=audioMatchItems();
   const metas=deckMetas.slice().sort((a,b)=>(a.kind==='builtin'?1:0)-(b.kind==='builtin'?1:0));
+  const states=[];
   for(const m of metas){
     const deck=getDeck(m);
-    matchCache[m.id+'|'+mediaRev]=deck?runDeckMatch(deck, items):{byId:{}, unmatched:[], matchedCount:0};
+    if(!deck){ matchCache[m.id+'|'+mediaRev]={byId:{}, unmatched:[], matchedCount:0}; continue; }
+    states.push({m, deck, builtin:m.kind==='builtin', st:deckPhase1(deck, items), unmatched:[]});
+  }
+  matchPipeline(states, items);
+  for(const s of states){
+    const cnt=s.st.deckTextMatched + s.st.bare + s.st.resid;
+    for(const r of Object.values(s.st.byId)) delete r.selfText; // служебное поле наружу не идёт
+    matchCache[s.m.id+'|'+mediaRev]={byId:s.st.byId, unmatched:s.unmatched, matchedCount:cnt};
   }
   matchCache[revKey]=true;
 }
@@ -847,7 +900,12 @@ function matchResultFor(deck){
     computeAllMatches();
     if(!matchCache[key]){ // колода не из deckMetas (тесты) — считаем на клоне файлов
       const items=audioMatchItems().map(it=>Object.assign({}, it));
-      matchCache[key]=runDeckMatch(deck, items);
+      const st=deckPhase1(deck, items);
+      const state={m:{id:deck.metaId||'local', cohort:deck.cohort}, deck, builtin:deck.builtinMatch===true, st, unmatched:[]};
+      matchPipeline([state], items);
+      const cnt=st.deckTextMatched + st.bare + st.resid;
+      for(const r of Object.values(st.byId)) delete r.selfText;
+      matchCache[key]={byId:st.byId, unmatched:state.unmatched, matchedCount:cnt};
     }
   }
   return matchCache[key]||empty;
@@ -858,14 +916,19 @@ function matchedAudioFor(ex, side){
   return r ? ((side==='2'?r.s2:r.s1)||[]) : [];
 }
 function upsertDeck(meta){
+  const i=deckMetas.findIndex(d=>d.id===meta.id);
   if(i>=0) deckMetas[i]=meta; else deckMetas.push(meta);
   saveDecks();
 }
-function addDeckFromText(text, name, kind, url){
+function addDeckFromText(text, name, kind, url, cohort){
   const deck=parseDeck(text, url||name);
   if(!deck.cards.length){ toast(t('parseEmpty')); return null; }
   const id = kind==='url' ? 'url:'+url : deckIdForLocal(deck.title);
   const meta={ id, kind, name:deck.title, url:url||'', text, savedAt:nowIso() };
+  const ch=cohort||'';
+  const prev=deckMetas.find(d=>d.id===id);
+  if(ch) meta.cohort=ch; // «своя» папка/архив: медиа из того же источника приоритетнее
+  else if(prev && prev.cohort) meta.cohort=prev.cohort; // перезагрузка без папки не рвёт связь
   delete meta.error;
   upsertDeck(meta);
   return meta;
@@ -977,6 +1040,24 @@ function audioListFor(ex, side){
 // Запаска для сторон без своего аудио (особенно предложения): текст читает голос браузера.
 // Язык берётся из шапки колоды (lang/base), при неопределённости — по алфавиту текста.
 // Включение/выключение: настройки на главной и кнопка 🗣 в сессии; громкость — общий слайдер.
+// Голоса Chrome отдаёт не сразу (getVoices() пуст до voiceschanged) — без ожидания
+// браузер читает системным голосом по умолчанию: на русской Windows всё звучит по-русски.
+let ttsVoices=[]; let ttsVoicesReady=false;
+function initVoices(){
+  if(!('speechSynthesis' in window)) return;
+  const load=()=>{ try{ const v=speechSynthesis.getVoices(); if(v && v.length){ ttsVoices=v; ttsVoicesReady=true; } }catch(e){} };
+  load();
+  try{ speechSynthesis.addEventListener('voiceschanged', load, {once:false}); }
+  catch(e){ try{ speechSynthesis.onvoiceschanged=load; }catch(e2){} }
+}
+function pickVoice(prefix){
+  if(!ttsVoices.length) return null;
+  const pref=String(prefix||'').toLowerCase();
+  if(!pref) return null;
+  const scored=ttsVoices.filter(v=>v.lang && v.lang.toLowerCase().replace('_','-').startsWith(pref));
+  // локальные (установленные в системе) голоса обычно качественнее сетевых
+  return scored.find(v=>v.localService) || scored[0] || null;
+}
 function ttsAvailable(){
   return ('speechSynthesis' in window) && settings.tts!==false && !settings.muted;
 }
@@ -988,8 +1069,12 @@ function localeFor(prefix){
 }
 function sideLang(ex, side){
   const d=ex.deck||{};
-  const raw=side==='2' ? (d.base||d.lang||'') : (d.lang||d.base||'');
-  return String(raw).slice(0,2).toLowerCase();
+  const raw=side==='2' ? (d.base||'') : (d.lang||'');
+  const prefix=String(raw||'').slice(0,2).toLowerCase();
+  if(prefix) return prefix;
+  // язык стороны не указан в шапке — определяем по алфавиту текста самой стороны
+  const text=String(textOfSide(ex, side)||'');
+  return /[\u0400-\u04FF]/.test(text)?'ru':'en';
 }
 function textOfSide(ex, side){
   const c=ex.card;
@@ -1008,15 +1093,25 @@ function speakSide(ex, side){
 function speak(text, prefix){
   if(!ttsAvailable() || !text) return;
   stopSpeech();
+  const go=()=>{
+    try{
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang=localeFor(prefix)||'en-US';
+      u.volume=outVolume();
+      const v=pickVoice(prefix);
+      if(v) u.voice=v;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  if(ttsVoicesReady){ go(); return; }
+  // голоса ещё не пришли (первое обращение) — ждём voiceschanged, максимум 1.2 с
+  let done=false;
+  const fire=()=>{ if(done) return; done=true; go(); };
   try{
-    const u=new SpeechSynthesisUtterance(text);
-    u.lang=localeFor(prefix)||'en-US';
-    u.volume=outVolume();
-    const vs=speechSynthesis.getVoices();
-    const v=vs.find(v=>v.lang && v.lang.toLowerCase().startsWith(prefix));
-    if(v) u.voice=v;
-    speechSynthesis.speak(u);
-  }catch(e){}
+    speechSynthesis.addEventListener('voiceschanged', fire, {once:true});
+  }catch(e){ try{ speechSynthesis.onvoiceschanged=fire; }catch(e2){} }
+  setTimeout(()=>{ try{ speechSynthesis.removeEventListener('voiceschanged', fire); }catch(e){}
+    initVoices(); fire(); }, 1200);
 }
 // сторона, которая показывается первой (до переворота/раскрытия)
 function initialFaceSide(ex){
@@ -1160,7 +1255,7 @@ function deckStatsHtml(m){
       warn=`<div class="err" title="${esc(deck.warnings.join('\n'))}">${esc(t('warnings'))}: ${deck.warnings.length} (первое: ${esc(deck.warnings[0])})</div>`;
     }
     const mr=matchResultFor(deck);
-    if(mr.unmatched.length){
+    if(m.kind!=='builtin' && mr.unmatched.length){
       warn+=`<div class="muted" style="font-size:.82rem;margin-top:4px">🔊 ${esc(t('unmatched'))}: ${esc(mr.unmatched.slice(0,4).join(', '))}${mr.unmatched.length>4?'…':''}</div>`;
     }
   }
@@ -1626,23 +1721,27 @@ async function onFilesChosen(fileList){
     return;
   }
   registerMediaLib(files);
-  let added=0, zips=0;
+  let added=0, zips=0; const failed=[];
+  // cohort мультивыбора: те же файлы, выбранные повторно, дают тот же id (fnv по путям)
+  const selId='sel:'+fnv(files.map(f=>f.webkitRelativePath||f.name).sort().join('|'));
   for(const f of files){
-    if(f.name.startsWith('.')) continue;
-    if(/\.zip$/i.test(f.name)){ zips++; await importZip(f); continue; }
-    if(/\.(md|markdown|txt)$/i.test(f.name)){
-      const text=await f.text();
-      const deck=parseDeck(text, f.name);
-      if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); continue; }
-      const id=deckIdForLocal(deck.title);
-      addDeckFromText(text, f.name, 'local', null);
-      registerAssets(id, files);
-      added++;
-    }
+    try{
+      if(f.name.startsWith('.')) continue;
+      if(/\.zip$/i.test(f.name)){ zips++; await importZip(f); continue; }
+      if(/\.(md|markdown|txt)$/i.test(f.name)){
+        const text=await f.text();
+        const deck=parseDeck(text, f.name);
+        if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); continue; }
+        const id=deckIdForLocal(deck.title);
+        addDeckFromText(text, f.name, 'local', null, rootCohortOf(f)||selId);
+        registerAssets(id, files);
+        added++;
+      }
+    }catch(e){ failed.push(f.name+' — '+(e && e.message ? e.message : 'ошибка')); }
   }
-  if(!added && !zips){ toast(t('invalidFile')); }
-  else if(added){ toast(added+' × '+t('added')); }
-  rerender();
+  if(!added && !zips){ toast(failed.length?t('invalidFile')+' ('+failed[0]+')':t('invalidFile')); }
+  else if(added){ toast(added+' × '+t('added')+(failed.length?' · ⚠ '+failed.length+' '+(LANG==='ru'?'файлов с ошибкой':'failed')+': '+failed[0]:'')); }
+  rerender(); // медиа-библиотека видна сразу, даже если разбор колод не удался
 }
 function registerAssets(deckId, files){
   const map={};
@@ -1741,6 +1840,7 @@ async function importZip(file){
   try{
     if(!('DecompressionStream' in window)){ toast(t('zipUnsupported')); return; }
     const entries=await readZip(file);
+    const zipCohort=(file.name||'').replace(/\.zip$/i,''); // файлы архива — cohort имени zip
     const media=[], decks=[];
     for(const en of entries){
       const name=en.name.replace(/^\.?\//,'');
@@ -1753,31 +1853,34 @@ async function importZip(file){
       const url=URL.createObjectURL(m.blob);
       putMediaKey(mediaLib.files, m.name, url);
       putMediaKey(mediaLib.files, m.name.split('/').pop()||m.name, url);
-      mediaLib.items.push({path:m.name, url});
+      mediaLib.items.push({path:m.name, url, cohort:zipCohort});
     }
     const [a,i]=mediaCount(media);
     mediaLib.audio+=a; mediaLib.image+=i;
     mediaRev++;
-    let added=0;
+    let added=0; const failed=[];
     for(const d of decks){
-      const deck=parseDeck(d.text, d.name);
-      if(!deck.cards.length) continue;
-      addDeckFromText(d.text, d.name, 'local', null);
-      added++;
+      try{
+        const deck=parseDeck(d.text, d.name);
+        if(!deck.cards.length) continue;
+        addDeckFromText(d.text, d.name, 'local', null, zipCohort);
+        added++;
+      }catch(e){ failed.push(d.name+' — '+(e && e.message ? e.message : 'ошибка')); }
     }
-    if(!media.length && !added){ toast(t('zipEmpty')); return; }
+    if(!media.length && !added){ toast(failed.length?t('zipFail')+': '+failed.join('; '):t('zipEmpty')); return; }
     const parts=[];
     if(media.length) parts.push(media.length+' '+(LANG==='ru'?'медиа':'media')+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')');
     if(added) parts.push(added+' '+(LANG==='ru'?plural(added,'колода','колоды','колод'):(added===1?'deck':'decks')));
     // пара первых имён — чтобы кодировку видно было сразу, а не по звуку
     const sample=media.slice(0,2).map(m=>m.name.split('/').pop()).join(', ');
     if(sample) parts.push('«'+sample+(media.length>2?'…':'')+'»');
+    if(failed.length) parts.push('⚠ '+failed.length+' '+(LANG==='ru'?'колод не прочитано':'decks failed')+': '+failed[0]);
     toast(t('zipImported')+': '+parts.join(', '), 5000);
-    rerender();
   }catch(e){
     toast(t('zipFail')+(e && e.message ? ': '+e.message : ''));
   }finally{
     zipBusy=false;
+    rerender(); // медиа-библиотека обновляется на экране даже при частичной ошибке
   }
 }
 const act={
@@ -2008,6 +2111,7 @@ function applyFontScale(){
 function boot(){
   applyFontScale();
   seedBuiltins();
+  initVoices(); // голоса синтеза загружаются заранее — иначе первый speak идёт системным голосом
   renderApp();
 }
 window.LT={ parseDeck, deckMetas:()=>deckMetas, progress:()=>progress, addDeckFromText, startSession, session:()=>S,
