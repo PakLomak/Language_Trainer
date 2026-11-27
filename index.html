@@ -1,0 +1,2843 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Карточки — языковой тренажёр</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#ffffff; --ink:#1c2333; --muted:#6b7487;
+  --accent:#4f6ef7; --accent-ink:#ffffff; --ok:#2e9e5b; --ok-bg:#e6f6ec;
+  --bad:#d64550; --bad-bg:#fdeaea; --line:#e3e7ef; --chip:#eef1f8; --warn:#b7791f;
+  --shadow:0 1px 3px rgba(20,30,60,.08),0 4px 14px rgba(20,30,60,.06);
+  --radius:14px;
+  --font-mono:ui-monospace,'Cascadia Mono','SF Mono',Menlo,Consolas,'DejaVu Sans Mono','Liberation Mono','Roboto Mono',monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#12151c; --card:#1b202b; --ink:#e8ecf5; --muted:#9aa3b5;
+    --accent:#6c86ff; --accent-ink:#0e1420; --ok:#4fc07f; --ok-bg:#1d3327; --bad:#e36672; --bad-bg:#3a2126;
+    --line:#2a3140; --chip:#232a37; --warn:#d9a53f; --shadow:0 1px 3px rgba(0,0,0,.4); }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{font-size:16px}  /* база rem: настройка «Размер шрифта» меняет её через JS, и масштабируется весь интерфейс */
+body{background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:1rem;line-height:1.5;-webkit-font-smoothing:antialiased}
+#app{max-width:860px;margin:0 auto;padding:16px 14px 70px}
+h1{font-size:1.35rem;margin:.2rem 0 1rem}
+h2{font-size:1.12rem;margin:1.6rem 0 .6rem}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.5rem 0}
+.muted{color:var(--muted)}
+.err{color:var(--bad);font-size:.85rem}
+.hidden{display:none!important}
+.top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.top h1{margin:0}
+.top .right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.lang-switch{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.lang-switch button{border:0;background:transparent;color:var(--muted);padding:.35rem .65rem;cursor:pointer;font-size:.85rem}
+.lang-switch button.on{background:var(--accent);color:var(--accent-ink)}
+.btn{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:.55rem .9rem;font-size:.95rem;cursor:pointer;user-select:none;text-decoration:none}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn-danger{color:var(--bad);border-color:var(--bad)}
+.btn-sm{padding:.32rem .65rem;font-size:.85rem;border-radius:8px}
+.grid{display:grid;grid-template-columns:1fr;gap:12px}
+@media(min-width:640px){.grid{grid-template-columns:1fr 1fr}}
+.deck{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px;display:flex;flex-direction:column;gap:10px}
+.deck .name{font-weight:600;font-size:1.02rem;word-break:break-word}
+.badge{display:inline-block;font-size:.72rem;padding:.15rem .5rem;border-radius:99px;background:var(--chip);color:var(--muted);margin-left:6px;vertical-align:middle}
+.meta{color:var(--muted);font-size:.85rem;display:flex;flex-wrap:wrap;gap:.3rem 1rem}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.spacer{flex:1}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-top:16px}
+.panel h3{margin-top:0}
+input[type=text],input[type=url],input[type=number],select.sel{width:100%;padding:.55rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font-size:.95rem;font-family:inherit}
+select.sel{appearance:none;-webkit-appearance:none}
+input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+label.fld{display:block;font-size:.85rem;color:var(--muted);margin:.9rem 0 .35rem}
+.overlay{position:fixed;inset:0;background:rgba(10,14,25,.45);display:flex;align-items:flex-end;justify-content:center;z-index:50}
+@media(min-width:640px){.overlay{align-items:center}}
+.modal{background:var(--card);border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px;max-height:90vh;overflow:auto}
+@media(min-width:640px){.modal{border-radius:16px}}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--chip);border-radius:99px;padding:.28rem .75rem;font-size:.85rem;cursor:pointer;user-select:none}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chip.off{opacity:.4;cursor:not-allowed}
+.sess-top{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+@media(max-width:639px){.sess-top .sess-title{order:9;width:100%;text-align:center}}
+select.sel.sel-inline{width:auto;min-width:64px;padding:.28rem .45rem;font-size:.85rem;border-radius:8px}
+.bar{height:6px;background:var(--chip);border-radius:99px;overflow:hidden;margin-bottom:18px}
+.bar i{display:block;height:100%;background:var(--accent);transition:width .2s}
+.stage{position:relative}
+.tapholder{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:26px 20px;min-height:210px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:1.3rem;line-height:1.45;word-break:break-word}
+.tapholder.small{font-size:1.05rem;cursor:default;align-items:stretch;text-align:left}
+.audio-big{font-size:2.6rem;line-height:1;text-align:center;margin-top:4px}
+.side-label{color:var(--muted);font-size:.75rem;text-transform:uppercase;letter-spacing:.07em;margin-bottom:.6rem}
+.flip-hint{color:var(--muted);font-size:.8rem;margin-top:14px}
+/* картинка на карточке: размер настраивается (Настройки / сессия) — 4 варианта через --img-h */
+.card-img{max-width:100%;height:auto;max-height:var(--img-h,160px);border-radius:10px;margin:.5rem 0}
+.dir-note{color:var(--muted);font-size:.8rem;margin-top:10px}
+.divider{height:1px;background:var(--line);margin:16px 0;width:100%}
+.grade{display:flex;gap:10px;margin-top:16px}
+.grade .btn{flex:1;justify-content:center;padding:.85rem;font-size:1.02rem;border-radius:12px}
+/* ✓ / ✗ вместо «Знал / Не знал»: крупный знак, подпись в подсказке и aria-label */
+.grade .btn.grade-mark{font-size:1.7rem;line-height:1;padding:.7rem}
+/* главная: Настройки + Загрузка файлов рядом; ниже колоды, затем Журнал на всю ширину.
+   В правой колонке — загрузка, под ней «Медиа» */
+.home-top,.duo{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+@media(max-width:639px){.home-top,.duo{grid-template-columns:1fr}}
+.home-col{display:flex;flex-direction:column;min-width:0}
+.home-col .panel{margin-top:16px}
+.home-col .panel:first-child{margin-top:0}
+/* заголовок панели по центру (панны главной) */
+.panel-title{text-align:center}
+/* настройки строками: имя параметра слева, управление справа */
+.set-row{display:flex;align-items:center;gap:.6rem;min-height:2.2rem;flex-wrap:wrap}
+.set-row+.set-row{margin-top:6px}
+.set-name{flex:0 0 8.2rem;color:var(--muted);white-space:nowrap}
+.set-row .sel-inline{flex:0 0 auto}
+.set-vol{flex:1;min-width:110px;max-width:220px}
+@media(max-width:639px){.set-name{flex-basis:7rem}.set-vol{max-width:none}}
+/* кнопки-иконки загрузки: файл / папка / zip — одинаковой ширины */
+.upload-icons{gap:.6rem}
+.upload-icons .btn{flex:1;justify-content:center}
+.btn-ico{font-size:1.3rem;padding:.5rem .8rem}
+.g-ok{color:var(--ok);border-color:var(--ok)}
+.g-bad{color:var(--bad);border-color:var(--bad)}
+.answer-box{background:var(--ok-bg);border:1px solid var(--ok);border-radius:10px;padding:.75rem .9rem;margin-top:12px;font-size:1.12rem;word-break:break-word}
+.diff-ok{color:var(--ok)}
+.diff-no{color:var(--bad);text-decoration:underline wavy var(--bad) 1.5px;text-underline-offset:4px}
+.typed-echo{color:var(--muted);font-size:.88rem;margin-top:.5rem;word-break:break-word}
+.alts{color:var(--muted);font-size:.85rem;margin-top:.5rem}
+.hintline{background:var(--chip);border-radius:10px;padding:.55rem .85rem;margin-top:12px;font-size:1.1rem;letter-spacing:.14em;word-break:break-all}
+.hinttext{color:var(--muted);font-size:.9rem;margin-top:10px;font-style:italic}
+.keys{color:var(--muted);font-size:.75rem;margin-top:22px;text-align:center}
+@media(max-width:639px){.keys{display:none}}
+.audio-row{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+/* переворот карточки: 0.5 с в обе стороны (новая грань «входит» поворотом) */
+@keyframes flipInFwd{from{transform:perspective(900px) rotateY(88deg);opacity:.35}to{transform:perspective(900px) rotateY(0);opacity:1}}
+@keyframes flipInBwd{from{transform:perspective(900px) rotateY(-88deg);opacity:.35}to{transform:perspective(900px) rotateY(0);opacity:1}}
+.tapholder.flip-fwd{animation:flipInFwd .5s ease both}
+.tapholder.flip-bwd{animation:flipInBwd .5s ease both}
+@media (prefers-reduced-motion: reduce){.tapholder.flip-fwd,.tapholder.flip-bwd{animation:none}}
+.btn.off{opacity:.45}
+input[type=range]{accent-color:var(--accent);width:120px;padding:0;vertical-align:middle}
+@media(max-width:639px){input[type=range].sess-vol{width:74px}}
+.instr{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:760px){.instr{grid-template-columns:225px 1fr;align-items:start}}
+.instr nav{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:10px;display:flex;flex-wrap:wrap;gap:4px}
+@media(min-width:760px){.instr nav{flex-direction:column;position:sticky;top:12px;flex-wrap:nowrap}}
+.instr nav a{padding:.4rem .6rem;border-radius:8px;color:var(--ink);text-decoration:none;font-size:.9rem;cursor:pointer;display:block}
+.instr nav a:hover{background:var(--chip)}
+.instr .content{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;min-width:0}
+.instr .content section{border-bottom:1px solid var(--line);padding-bottom:1.2rem;margin-bottom:1.4rem}
+.instr .content section:last-child{border-bottom:0;margin-bottom:0}
+.codebox{position:relative;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;overflow-x:auto;margin:.6rem 0 1rem}
+.codebox pre{margin:0;font:.78rem/1.55 var(--font-mono);white-space:pre}
+.copy{position:absolute;top:6px;right:6px}
+.tablewrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.88rem;margin:.6rem 0}
+th,td{border:1px solid var(--line);padding:.45rem .6rem;text-align:left;vertical-align:top}
+th{background:var(--chip)}
+.toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:.6rem 1rem;border-radius:10px;font-size:.9rem;z-index:99;max-width:90vw;box-shadow:var(--shadow)}
+/* журнал событий: зелёный — успех, жёлтый — предупреждение, красный — ошибка */
+#log-panel h3{display:flex;align-items:center;gap:.6rem}
+#log-panel h3 .btn{margin-left:auto}
+.log-list{max-height:340px;overflow-y:auto;font-size:.78rem;display:flex;flex-direction:column;gap:2px}
+.log-row{display:flex;gap:.6rem;padding:.22rem .45rem;border-radius:8px;align-items:baseline;word-break:break-word}
+.log-row .log-time{color:var(--muted);font-size:.68rem;flex:0 0 auto}
+/* строки-детали под заголовком записи (подсказки переименования, записи без файла) */
+.log-sub{display:block;font-size:.72rem;opacity:.85;margin-top:3px;line-height:1.5;word-break:break-word}
+/* построчный аудио-отчёт: ✔ — успех, ⚠ — внимание, ✖ — провал (маркер в начале строки) */
+.log-sub .dl-ok{color:var(--ok)}
+.log-sub .dl-warn{color:var(--warn)}
+.log-sub .dl-err{color:var(--bad)}
+.log-ok{color:var(--ok);background:var(--ok-bg)}
+.log-warn{color:var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.log-err{color:var(--bad);background:var(--bad-bg)}
+/* плавающая кнопка «наверх» (инструкция и другие длинные страницы) */
+#to-top{position:fixed;right:16px;bottom:16px;width:44px;height:44px;border-radius:50%;
+  border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:1.25rem;line-height:1;
+  cursor:pointer;box-shadow:var(--shadow);z-index:60;opacity:0;pointer-events:none;
+  transform:translateY(10px);transition:opacity .2s,transform .2s}
+#to-top.show{opacity:1;pointer-events:auto;transform:none}
+#to-top:hover{background:var(--chip)}
+@media (prefers-reduced-motion: reduce){#to-top{transition:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<button id="to-top" type="button" aria-label="Наверх" title="Наверх">↑</button>
+<script>
+'use strict';
+/* =====================================================================
+   НАСТРОЙКИ АВТОРА САЙТА
+   RECOMMENDED_DECKS — колоды, которые видны всем при первом открытии.
+   Добавьте ссылки на raw-файлы своего репозитория:
+     { name: 'English A1', url: 'https://raw.githubusercontent.com/user/repo/main/decks/en-basic.md' }
+   Демо-колода встроена в файл и работает даже без интернета.
+   ===================================================================== */
+const RECOMMENDED_DECKS = [
+  // { name: 'English A1', url: 'decks/en-basic.md' },
+];
+
+/* Демо-колода «Test» (английский → русский) */
+const DEMO_DECK = [
+'---',
+'title: Test',
+'lang: en',
+'base: ru',
+'поворот: разрешен',
+'description: Встроенный пример колоды. Свои базы добавляйте по ссылке или файлом; формат описан в разделе «Инструкция».',
+'---',
+'',
+'# Карточки',
+'',
+'hello | привет',
+'goodbye | до свидания',
+'thank you | спасибо',
+'please | пожалуйста',
+'yes | да',
+'no | нет',
+'good morning | доброе утро; добрый день',
+'good evening | добрый вечер',
+'how are you? | как дела?',
+'my name is Ana | меня зовут Ана',
+'nice to meet you | очень приятно',
+'see you later | до скорого',
+'a coffee | кофе',
+'the bill | счёт (в кафе)',
+'Good morning, how are you? | Добрый день, как дела? | формальное приветствие | приветствия',
+'See you tomorrow! | До завтра! | говорится при прощании | приветствия',
+'',
+'# Задания',
+'',
+'Привет, как дела?; Здравствуйте, как ты?; Как ты поживаешь? | Hello! How are you?; Hi! How are you?; How are you doing? | неформальное приветствие | приветствия',
+'Добрый день, как дела? | Good morning, how are you? | до полудня — good morning | приветствия',
+'Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana',
+'tags: знакомство',
+'',
+'Один кофе, пожалуйста. | A coffee, please; One coffee, please',
+'tags: кафе',
+'',
+].join('\n');
+
+/* ============================ i18n ============================ */
+const I18N = {
+ru:{
+  appName:'Карточки', tagline:'языковой тренажёр',
+  navInstruction:'Инструкция', language:'Язык',
+  myDecks:'Мои колоды', empty:'Пока нет ни одной колоды. Добавьте ссылку или загрузите файл.',
+  train:'Тренировать', trainAll:'Тренировать все колоды вместе',
+  refresh:'Обновить', delete:'Удалить', confirmDelete:'Удалить колоду? Прогресс по ней сохранится в архиве прогресса.',
+  restoreDemo:'Вернуть демо-колоду',
+  badgeBuiltin:'встроенная', badgeUrl:'по ссылке', badgeLocal:'локальная',
+  cardsCount:'карт', tasksCount:'заданий', statKnew:'знал', statMissed:'не знал',
+  addUrlTitle:'Добавить колоду по ссылке', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
+  addBtn:'Добавить', noUrl:'Введите ссылку на файл колоды',
+  uploadTitle:'Загрузить файлы с устройства', uploadBtn:'Выбрать файлы', folderBtn:'Выбрать папку', zipBtn:'Загрузить архив (.zip)',
+  uploadHint:'Кнопка «Выбрать файлы»: .md/.txt вместе с медиа рядом, или сразу .zip-архив. «Выбрать папку»: целая папка — колоды и медиа найдутся сами. Аудио можно не прописывать в файле: сайт сам найдёт файлы вида 01_Hello_Hi.mp3 по номеру и тексту карточки, короткие — по имени; строки audio:/audio2: остаются для ручных случаев. Медиа предзагружается в общую библиотеку (включая содержимое архива) и работает для всех колод до перезагрузки страницы; текст колод сохраняется в браузере (localStorage).',
+  mediaTitle:'Медиа-библиотека (аудио и картинки)',
+  mediaNone:'Медиа не подключено. Выберите папку или ZIP-архив: строки audio: связываются по пути, файлы вида 01_Hello_Hi.mp3 — по номеру и тексту карточки, короткие имена (Hello_Hi.mp3) — по названию.',
+  mediaLoaded:'Медиа предзагружено', mediaAudio:'аудио', mediaImages:'картинки',
+  mediaUntilReload:'Хранится до перезагрузки страницы; работает для всех колод, включая колоды по ссылке.',
+  mediaClear:'Очистить', mediaCleared:'Медиа очищено',
+  mediaMissing:'картинка недоступна',
+  volume:'Громкость', mute:'Выключить звук', unmute:'Включить звук',
+  tts:'Синтез речи', ttsOn:'Синтез речи включён: если у карточки нет своего аудио, текст читает голос браузера', ttsOff:'Синтез речи выключен',
+  unmatched:'Аудио без пары',
+  zipImporting:'Читаю архив…', zipImported:'Архив подключён', zipFail:'Архив не удалось прочитать', zipEmpty:'В архиве нет медиа и колод',
+  zipUnsupported:'Браузер не умеет распаковывать deflate-архивы — нужен свежий Chrome, Edge или Firefox; либо выберите папку кнопкой «Выбрать папку»',
+  fetchFail:'Не удалось загрузить', parseEmpty:'В файле не найдено ни одной карточки',
+  added:'Колода добавлена', updated:'Обновлено', saved:'Сохранено',
+  settingsTitle:'Настройки',
+  progress:'Прогресс', mediaShort:'Медиа',
+  fontSize:'Размер шрифта',
+  variants:'Варианты',
+  exportProgress:'Экспортировать прогресс', importProgress:'Импортировать прогресс',
+  resetProgress:'Сбросить весь прогресс', confirmReset:'Точно сбросить весь прогресс?',
+  progressCleared:'Прогресс сброшен', imported:'Прогресс импортирован', invalidFile:'Некорректный файл прогресса',
+  setupTitle:'Настройка сессии', mode:'Режим', modeCards:'Карты', modeTasks:'Задания', modeMix:'Микс',
+  direction:'Направление', dirMixed:'Смешанно', dirL1L2:'Базовый → Изучаемый', dirL2L1:'Изучаемый → Базовый',
+  onlyMistakes:'Повторить только ошибки', tagsFilter:'Теги (необязательно)',
+  size:'Сколько карточек за сессию (пусто — все)', start:'Начать', cancel:'Отмена',
+  exit:'Выйти', showAnswer:'Показать ответ', hint:'Подсказка', flipDir:'Сменить направление', dirFixed:'Направление этого задания зафиксировано в файле',
+  knew:'Знал', missed:'Не знал',
+  sideA:'Сторона A', sideB:'Сторона B', tapToFlip:'Нажмите, чтобы перевернуть',
+  prompt:'Задание', answer:'Ответ', typeHere:'Введите перевод…',
+  hintField:'Подсказка:', hintAllShown:'Открыты все буквы', audio:'Аудио', audioFail:'Аудио недоступно', audioBlocked:'Браузер запретил звук — кликните по странице и попробуйте ещё раз', listenPrompt:'Прослушайте и напишите, что услышали',
+  exact:'Совпадает с эталоном', alsoCorrect:'Тоже верно:', yourAnswer:'Ваш ответ:',
+  done:'Сессия завершена', doneHints:'Подсказок', repeatMistakes:'Повторить ошибки', toHome:'На главную',
+  noCards:'Под эти настройки не нашлось ни одной карточки', noMistakes:'Ошибок нет — тренируйтесь дальше!',
+  keysHint:'Пробел / Enter — переворот или показать ответ · 1 — знал · 2 — не знал · H — подсказка · P — повторить аудио · F — сменить направление · Esc — выход · клавиши работают на любой раскладке',
+  warnings:'Замечания при разборе', copied:'Скопировано', copy:'Копировать',
+  uploadHintShort:'Кнопки описаны в инструкции («Загрузка на сайт»); медиа подхватывается само, аудио можно не прописывать.',
+  logTitle:'Журнал', logClear:'Очистить', logCleared:'Журнал очищен',
+  logEmpty:'Пока пусто: здесь появятся успехи (зелёным), предупреждения (жёлтым) и ошибки (красным)',
+  logDeleted:'Колода удалена',
+  logMedia:'Медиа подключено', logStale:'Устаревших медиа-записей убрано',
+  logAudioReport:'Аудио-отчёт «{d}»: озвучено {a} из {b} записей',
+  logAudioReportBad:'Аудио-отчёт «{d}»: озвучено {a} из {b} записей, проблем: {c}',
+  logRecCard:'карточка №{n}', logRecTask:'задание №{n}',
+  logSide1:'сторона 1', logSide2:'сторона 2', logSideBoth:'обе стороны',
+  logByText:'по тексту', logByNum:'по номеру', logByName:'по имени файла',
+  logRowBound:'{n} → {f} ({s}, {h})', logRowManual:'{n} → вручную: {f}',
+  logRowNone:'{n} «{t}» — файла нет (синтез речи)',
+  logArbCard:'{f} — подходит и карточке №{n}, и заданию №{n}: привязываю к карточке',
+  logTakenRow:'{f} — запись №{n} уже озвучена другим файлом этого номера',
+  logSugg:'{f} — похоже, это запись №{n} «{t}», переименуйте в {d}',
+  logSuggDup:'{f} — это запись №{n}, но файл там уже есть ({d}) — похоже, дубль',
+  logUnownedText:'{f} — текст не узнан',
+  logUnownedNum:'{f} — номер ни к одной записи не подошёл',
+  logParseWarns:'Замечания при разборе', logReuploadGone:'Колода для «Обновить» уже удалена — файл добавлю как новую колоду',
+  oneDir:'Реверс отключён — доступен только один вариант',
+  dirNoRev:'Реверс отключён: у этой карточки один вариант',
+  dirNote:'В колодах без реверса (reverse: false / поворот: запрещен или lang = base) карточки и задания идут в одном направлении',
+  langsLine:'Языки колод', grammarLabel:'грамматика (lang = base)', langTarget:'Изучаемый:', langBase:'Базовый:',
+  imgSize:'Размер картинок', imgS:'Маленькие', imgM:'Средние', imgL:'Крупные', imgXL:'Очень крупные',
+  imgTask:'Картинка', imgTaskHint:'Что на картинке? Введите ответ',
+  instrTitle:'Инструкция'
+},
+en:{
+  appName:'Flashcards', tagline:'language trainer',
+  navInstruction:'Guide', language:'Language',
+  myDecks:'My decks', empty:'No decks yet. Add a link or upload a file.',
+  train:'Train', trainAll:'Train all decks together',
+  refresh:'Refresh', delete:'Delete', confirmDelete:'Delete this deck? Its progress stays in the progress archive.',
+  restoreDemo:'Restore demo deck',
+  badgeBuiltin:'built-in', badgeUrl:'link', badgeLocal:'local',
+  cardsCount:'cards', tasksCount:'tasks', statKnew:'knew', statMissed:'missed',
+  addUrlTitle:'Add a deck by link', urlPlaceholder:'https://raw.githubusercontent.com/user/repo/main/decks/deck.md',
+  addBtn:'Add', noUrl:'Enter a link to a deck file',
+  uploadTitle:'Upload files from your device', uploadBtn:'Choose files', folderBtn:'Choose folder', zipBtn:'Load archive (.zip)',
+  uploadHint:'"Choose files": .md/.txt together with nearby media, or a .zip archive right away. "Choose folder": a whole folder — decks and media are found for you. Audio does not have to be written in the file: the site finds files like 01_Hello_Hi.mp3 by number and card text, and short names by title; audio:/audio2: lines stay for manual cases. Media is preloaded into a shared library (archives included) and works for every deck until the page is reloaded; deck text is saved in the browser (localStorage).',
+  mediaTitle:'Media library (audio and images)',
+  mediaNone:'No media connected yet. Pick a folder or a ZIP archive: audio: paths are matched as written, files like 01_Hello_Hi.mp3 — by number and card text, short names (Hello_Hi.mp3) — by title.',
+  mediaLoaded:'Media preloaded', mediaAudio:'audio', mediaImages:'image(s)',
+  mediaUntilReload:'Kept until the page is reloaded; serves every deck, link-based decks included.',
+  mediaClear:'Clear', mediaCleared:'Media cleared',
+  mediaMissing:'image unavailable',
+  volume:'Volume', mute:'Mute', unmute:'Unmute',
+  tts:'Speech synthesis', ttsOn:'Speech synthesis is on: when a card has no audio file of its own, the browser voice reads the text', ttsOff:'Speech synthesis is off',
+  unmatched:'Unmatched audio',
+  zipImporting:'Reading archive…', zipImported:'Archive connected', zipFail:'Failed to read the archive', zipEmpty:'The archive has no media or decks',
+  zipUnsupported:'This browser cannot unpack deflate archives — a recent Chrome, Edge or Firefox is needed; otherwise pick a folder with the "Choose folder" button',
+  fetchFail:'Failed to load', parseEmpty:'No cards found in the file',
+  added:'Deck added', updated:'Updated', saved:'Saved',
+  settingsTitle:'Settings',
+  progress:'Progress', mediaShort:'Media',
+  fontSize:'Font size',
+  variants:'Variants',
+  exportProgress:'Export progress', importProgress:'Import progress',
+  resetProgress:'Reset all progress', confirmReset:'Really reset all progress?',
+  progressCleared:'Progress cleared', imported:'Progress imported', invalidFile:'Invalid progress file',
+  setupTitle:'Session setup', mode:'Mode', modeCards:'Cards', modeTasks:'Tasks', modeMix:'Mix',
+  direction:'Direction', dirMixed:'Mixed', dirL1L2:'Base → Target', dirL2L1:'Target → Base',
+  onlyMistakes:'Repeat mistakes only', tagsFilter:'Tags (optional)',
+  size:'Cards per session (empty — all)', start:'Start', cancel:'Cancel',
+  exit:'Exit', showAnswer:'Show answer', hint:'Hint', flipDir:'Flip direction', dirFixed:'This task direction is fixed in the file',
+  knew:'Knew it', missed:'Missed it',
+  sideA:'Side A', sideB:'Side B', tapToFlip:'Tap to flip',
+  prompt:'Prompt', answer:'Answer', typeHere:'Type the translation…',
+  hintField:'Hint:', hintAllShown:'All letters revealed', audio:'Audio', audioFail:'Audio unavailable', audioBlocked:'The browser blocked sound — click the page and try again', listenPrompt:'Listen and type what you hear',
+  exact:'Matches the reference', alsoCorrect:'Also correct:', yourAnswer:'Your answer:',
+  done:'Session complete', doneHints:'Hints', repeatMistakes:'Repeat mistakes', toHome:'Home',
+  noCards:'No cards match these settings', noMistakes:'No mistakes yet — keep going!',
+  keysHint:'Space / Enter — flip or reveal · 1 — knew · 2 — missed · H — hint · P — replay audio · F — flip direction · Esc — exit · keys work on any keyboard layout',
+  warnings:'Parse warnings', copied:'Copied', copy:'Copy',
+  uploadHintShort:'The buttons are described in the Guide ("Loading decks"); media is picked up automatically, audio does not have to be written in the file.',
+  logTitle:'Event log', logClear:'Clear', logCleared:'Log cleared',
+  logEmpty:'Nothing yet: successes (green), warnings (yellow) and errors (red) will appear here',
+  logDeleted:'Deck deleted',
+  logMedia:'Media connected', logStale:'Stale media entries removed',
+  logAudioReport:'Audio report "{d}": {a} of {b} records voiced',
+  logAudioReportBad:'Audio report "{d}": {a} of {b} records voiced, {c} problem(s)',
+  logRecCard:'card #{n}', logRecTask:'task #{n}',
+  logSide1:'side 1', logSide2:'side 2', logSideBoth:'both sides',
+  logByText:'by text', logByNum:'by number', logByName:'by file name',
+  logRowBound:'{n} → {f} ({s}, {h})', logRowManual:'{n} → manual: {f}',
+  logRowNone:'{n} "{t}" — no file (text-to-speech)',
+  logArbCard:'{f} — fits both card #{n} and task #{n}: linking to the card',
+  logTakenRow:'{f} — record #{n} is already voiced by another file with this number',
+  logSugg:'{f} — looks like record #{n} "{t}", rename it to {d}',
+  logSuggDup:'{f} — belongs to record #{n}, which already has a file ({d}) — likely a duplicate',
+  logUnownedText:'{f} — text not recognized',
+  logUnownedNum:'{f} — its number fits no record',
+  logParseWarns:'Parse warnings', logReuploadGone:'The deck for "Refresh" was already deleted — the file will be added as a new deck',
+  oneDir:'Reverse is off — one direction only',
+  dirNoRev:'Reverse is off: this card has one direction only',
+  dirNote:'Decks without reverse (reverse: false / поворот: запрещен, or lang = base) go in one direction',
+  langsLine:'Deck languages', grammarLabel:'grammar (lang = base)', langTarget:'Target:', langBase:'Base:',
+  imgSize:'Image size', imgS:'Small', imgM:'Medium', imgL:'Large', imgXL:'Extra large',
+  imgTask:'Picture', imgTaskHint:'What is in the picture? Type the word',
+  instrTitle:'Guide'
+}};
+let LANG = 'ru';
+function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.ru[k] || k; }
+
+/* ============================ utils ============================ */
+const $ = s => document.querySelector(s);
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fnv(str){ let h=0x811c9dc5; for(let i=0;i<str.length;i++){ h^=str.charCodeAt(i); h=Math.imul(h,0x01000193)>>>0; } return h.toString(16); }
+function nowIso(){ return new Date().toISOString(); }
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+let toastTimer=null;
+function toast(msg, ms){
+  const old=document.querySelector('.toast'); if(old) old.remove();
+  const d=document.createElement('div'); d.className='toast'; d.textContent=msg;
+  document.body.appendChild(d);
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>d.remove(), ms||2800);
+}
+function copyText(text){
+  const done=()=>toast(t('copied'));
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(done).catch(()=>fallback());
+  } else fallback();
+  function fallback(){
+    const ta=document.createElement('textarea'); ta.value=text;
+    ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ toast(t('copied')); }
+    ta.remove();
+  }
+}
+
+/* ---- PARSER BEGIN (pure functions, no DOM) ---- */
+function normalizeText(s){
+  return String(s||'').toLowerCase()
+    .replace(/ё/g,'е')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[«»"'„“”()\[\]{}¿?¡!.,;:—–\-…]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function normalizeWord(s){ return normalizeText(s); }
+function extractFrontmatter(text){
+  const lines=text.split('\n');
+  if(!lines.length || lines[0].trim()!=='---') return null;
+  let end=-1;
+  for(let i=1;i<lines.length;i++){ if(lines[i].trim()==='---'){ end=i; break; } }
+  if(end<0) return null;
+  const meta={};
+  for(const l of lines.slice(1,end)){
+    // ключ может быть латиницей или кириллицей (поворот:); \w в JS — только латиница
+    const m=l.match(/^([A-Za-zА-Яа-яЁё_][\wА-Яа-яЁё-]*)\s*:\s*(.*)$/);
+    if(m) meta[m[1].toLowerCase()]=m[2].trim().replace(/^["']|["']$/g,'');
+  }
+  return { meta, body: lines.slice(end+1).join('\n') };
+}
+// единственный стиль записи: строка с полями через « | » (или Tab) + строки-модификаторы под ней.
+// Экранирование в тексте: \| — литеральная черта, \; — литеральная точка с запятой.
+const FIELD_KEYS=['hint','audio1','audio2','audio','tags','id','direction','reverse','поворот'];
+const FIELD_RE=new RegExp('^\\s*('+FIELD_KEYS.join('|')+')\\s*:\\s*(.*)$','i');
+function splitPipes(joined){
+  for(let i=0;i<joined.length-2;i++){
+    if(joined[i]===' ' && joined[i+1]==='|' && joined[i+2]===' ' && (i===0||joined[i-1]!=='\\')){
+      return [joined.slice(0,i), joined.slice(i+3)];
+    }
+  }
+  return null;
+}
+function unesc(s){ return String(s||'').replace(/\\\|/g,'|').replace(/\\;/g,';'); }
+// однострочная запись: все вхождения « | » (с учётом экранирования \|) → массив полей
+function splitAllPipes(s){
+  const parts=[]; let rest=String(s||'');
+  for(;;){
+    const sp=splitPipes(rest);
+    if(!sp){ parts.push(rest); break; }
+    parts.push(sp[0]); rest=sp[1];
+  }
+  return parts.map(x=>x.trim());
+}
+// «;» в однострочном поле = варианты (первое значение каноничное); \; — литеральная «;»
+function splitVariants(v){
+  const ps=String(v||'').split(/(?<!\\);/).map(s=>unesc(s).trim()).filter(Boolean);
+  return { main: ps[0]||'', alts: ps.slice(1) };
+}
+function looksLikeRecord(line){
+  if(/\t/.test(line)) return true;
+  return splitAllPipes(line).length>=2;
+}
+// чистый текст без маркдауна и html: картинки вырезаются, ссылка остаётся текстом
+function plainText(s){
+  let t=String(s||'');
+  t=t.replace(/!\[[^\]]*\]\([^)]*\)/g,' ');            // ![](...)  — картинки
+  t=t.replace(/\[([^\]]*)\]\([^)]*\)/g,'$1');          // [текст](…) — остаётся текст
+  t=t.replace(/<[^>]+>/g,' ');                         // html-теги
+  t=t.replace(/`{1,3}([^`]*)`{1,3}/g,'$1');            // `code`
+  return t.replace(/\s+/g,' ').trim();
+}
+// сторона состоит только из картинки (картинка без текста) — из неё нельзя вводить ответ
+function isImageOnly(s){
+  return /!\[[^\]]*\]\([^)]*\)/.test(String(s||'')) && !plainText(s);
+}
+// однострочная запись → карточка/задание; parts: [сторона1, сторона2, hint?, tags?]
+function recordFromParts(parts, section, warnings, src){
+  const clip=s=>String(s).slice(0,40)+(s.length>40?'…':'');
+  if(parts.length<2 || !parts[0] || !parts[1]){
+    if(section==='tasks'||section==='audio') warnings.push('Задание без поля answer пропущено: «'+clip(src)+'»');
+    else warnings.push('Строка без « | » пропущена: «'+clip(src)+'»');
+    return null;
+  }
+  const v1=splitVariants(parts[0]), v2=splitVariants(parts[1]);
+  // секция задаёт тип жёстко; без заголовка: 2 поля — флеш-карта, 3+ — задание
+  const type = (section==='tasks'||section==='audio') ? 'task'
+             : (section==='cards' ? 'card' : (parts.length>=3 ? 'task' : 'card'));
+  const c={ type, audio:[], tags: parts[3]?parseTags([unesc(parts[3])]):[], alts:v2.alts };
+  if(v1.alts.length) c.alt1=v1.alts;
+  if(parts[2]) c.hint=unesc(parts[2]);
+  if(type==='card'){ c.front=v1.main; c.back=v2.main; }
+  else {
+    let p=v1.main, a=v2.main;
+    // картинка в поле ответа — стороны меняются местами: картинка всегда вопросом
+    if(isImageOnly(a) && !isImageOnly(p)){
+      warnings.push('Картинка в ответе задания — стороны поменяны местами: «'+clip(src)+'»');
+      const tmp=p; p=a; a=tmp;
+    }
+    if(isImageOnly(p) && isImageOnly(a)){
+      warnings.push('Задание без текста ответа пропущено (обе стороны — картинки): «'+clip(src)+'»');
+      return null;
+    }
+    c.prompt=p; c.answer=a;
+    // картинное задание: показывается картинка, ответ вводится с клавиатуры;
+    // направление одно (l1l2), кнопки ⇄ у него нет
+    if(isImageOnly(p)){ c.imgTask=true; c.direction='l1l2'; }
+    if(!c.answer.trim()){ warnings.push('Задание с пустым answer пропущено: «'+clip(src)+'»'); return null; }
+  }
+  return finalizeCard(c);
+}
+// аудиозадание секции # Audio: «audio: путь | ответ [ | подсказка | теги]».
+// Ключ audio:/audio2: — пометка, чья это озвучка; задание всегда: слушать → вводить текст.
+function audioRecordFromParts(parts, warnings, src){
+  const clip=s=>String(s).slice(0,40)+(s.length>40?'…':'');
+  const path=unesc(parts[0]||'').trim().replace(/^["']|["']$/g,'');
+  if(parts.length<2 || !path || !parts[1]){
+    warnings.push('Аудиозадание без пути или ответа пропущено: «'+clip(src)+'»');
+    return null;
+  }
+  const v=splitVariants(parts[1]);
+  const c={ type:'task', audioTask:true, prompt:'', answer:v.main, alts:v.alts,
+            audio:[path], audio1:[], audio2:[],
+            tags:parts[3]?parseTags([unesc(parts[3])]):[], direction:'l1l2' };
+  if(parts[2]) c.hint=unesc(parts[2]);
+  if(!c.answer.trim()){ warnings.push('Аудиозадание с пустым ответом пропущено: «'+clip(src)+'»'); return null; }
+  return finalizeCard(c);
+}
+function parseTags(arr){
+  return (arr||[]).join(',').split(/[,;]/).map(s=>s.trim()).filter(Boolean);
+}
+// слияние тегов подзаголовка («## Тег» — для всех записей ниже) и собственных
+// tags: записи: без дубликатов, тег подзаголовка идёт первым
+function mergeTags(a, b){
+  const out=[], seen=new Set();
+  for(const s of (a||[]).concat(b||[])){
+    const k=s.toLowerCase();
+    if(!seen.has(k)){ seen.add(k); out.push(s); }
+  }
+  return out;
+}
+// необязательное поле, дописанное строкой под записью, прикрепляется к ней
+// значение reverse/поворот словами двух языков: true / false / null (не понято).
+// ё приводится к е, поэтому «разрешён» и «разрешен» равнозначны
+function parseBoolWord(v){
+  const s=String(v||'').toLowerCase().replace(/ё/g,'е').trim();
+  if(['true','yes','да','1','разрешен','включен','вкл','on'].includes(s)) return true;
+  if(['false','no','нет','0','запрещен','выключен','выкл','off'].includes(s)) return false;
+  return null;
+}
+function applyModifier(c, key, v){
+  v=String(v||'').trim();
+  switch(key){
+    case 'audio': case 'audio1': case 'audio2':
+      if(v) (c[key]=c[key]||[]).push(v);
+      break;
+    case 'hint':
+      if(v) c.hint=unesc(v);
+      break;
+    case 'tags':
+      if(v) c.tags=c.tags.concat(parseTags([v]));
+      break;
+    case 'id':
+      if(v) c.id=v;
+      break;
+    case 'direction': {
+      const d=v.toLowerCase(); c.direction=['l2l1','l1l2','both'].includes(d)?d:'both';
+      break;
+    }
+    case 'reverse':
+    case 'поворот': {
+      const b=parseBoolWord(v);
+      if(b===null) delete c.reverse; // непонятное значение — считаем поле незаданным
+      else c.reverse=b;
+      break;
+    }
+  }
+}
+function parseSectionLines(rawLines, section, warnings){
+  const lines=rawLines.slice();
+  while(lines.length && !lines[0].trim()) lines.shift();
+  while(lines.length && !lines[lines.length-1].trim()) lines.pop();
+  if(!lines.length) return [];
+  const out=[];
+  for(const line of lines){
+    const s=line.trim();
+    if(!s) continue;
+    const km=line.match(FIELD_RE);
+    const am=km && /^(audio1|audio2|audio)$/i.test(km[1]) && looksLikeRecord(line);
+    if(am){
+      // «audio: путь | ответ» — задание на слух; только в секции # Audio
+      if(section!=='audio'){
+        warnings.push('Строка «'+km[1].toLowerCase()+': … | …» — задание на слух, разбирается только в секции # Audio; здесь пропущена');
+        continue;
+      }
+      const rec=audioRecordFromParts(splitAllPipes(km[2]), warnings, s);
+      if(rec) out.push(rec);
+      continue;
+    }
+    if(km && !looksLikeRecord(line)){
+      // модификатор: прикрепляется к ближайшей записи выше
+      const rec=out.length?out[out.length-1]:null;
+      if(!rec){ warnings.push('Поле '+km[1].toLowerCase()+': без записи выше — строка пропущена'); continue; }
+      applyModifier(rec, km[1].toLowerCase(), km[2]);
+      continue;
+    }
+    if(km){ // известный ключ со « | » в значении — почти наверняка ошибка стиля
+      warnings.push('Поле '+km[1].toLowerCase()+': со « | » пропущено — модификатор пишется без « | », текст экранируйте \\|');
+      continue;
+    }
+    if(!/^\s/.test(line) && looksLikeRecord(line)){
+      const parts=/\t/.test(line) ? line.split('\t').map(x=>x.trim()) : splitAllPipes(line);
+      const rec=recordFromParts(parts, section, warnings, s);
+      if(rec) out.push(rec);
+      continue;
+    }
+    warnings.push('Строка без « | » пропущена: «'+s.slice(0,40)+(s.length>40?'…':'')+'»');
+  }
+  return out;
+}
+function finalizeCard(c){
+  const base = c.type==='card' ? ('card|'+c.front)
+             : c.audioTask ? ('audio|'+((c.audio&&c.audio[0])||'')+'|'+c.answer)
+             : ('task|'+c.prompt+'|'+c.answer);
+  if(!c.id) c.id=fnv(base);
+  if(c.type==='card'){
+    if(c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.back));
+    if(c.alt1) c.alt1=c.alt1.filter(a=>normalizeText(a)!==normalizeText(c.front));
+  } else {
+    if(c.alts) c.alts=c.alts.filter(a=>normalizeText(a)!==normalizeText(c.answer));
+    if(c.alt1) c.alt1=c.alt1.filter(a=>normalizeText(a)!==normalizeText(c.prompt));
+  }
+  if(c.alt1 && !c.alt1.length) delete c.alt1;
+  if(c.alts && !c.alts.length) delete c.alts;
+  return c;
+}
+// секции: флеш-карты, задания, задания на слух — имена любых регистров и языков
+const SECTION_ALIAS={
+  cards:['карточки','карточка','карты','card','cards'],
+  tasks:['задания','задание','task','tasks'],
+  audio:['аудио','audio','speech','произношение']
+};
+function sectionOf(headingText){
+  const first=String(headingText||'').toLowerCase().trim().split(/[\s:;,]+/)[0]||'';
+  for(const k in SECTION_ALIAS) if(SECTION_ALIAS[k].includes(first)) return k;
+  return null;
+}
+/* ---- автосвязка медиа по именам файлов (чистые функции) ---- */
+// апострофы в именах файлов не живут (I'll → Ill, don't → dont), а normalizeText
+// превращает апостроф в пробел («don t» ≠ «dont») — из-за этого файлы заданий с
+// апострофом не находили пару. Для сравнения с именем файла апострофы удаляются
+// без пробела, и только здесь: проверка вводимых ответов остаётся строгой
+// («dont» вместо «don't» в задании — по-прежнему ошибка)
+function normApo(s){ return String(s||'').replace(/['\u2019\u00B4`]/g,''); }
+function normJoinApo(arr){ return normalizeText(normApo((arr||[]).filter(Boolean).join(' '))); }
+// «01_Hello_Hi» → {num:1, rest:'hello hi'}; «7» → {num:7, rest:''}; имя без номера → {num:null, rest:…}
+function parseAudioStem(stem){
+  const s=String(stem||'').replace(/[_\s]+/g,' ').trim();
+  const m=s.match(/^(\d{1,3})(?:[ .\-]+(.*))?$/);
+  if(!m) return {num:null, rest:normJoinApo([s])};
+  return {num:parseInt(m[1],10), rest:m[2]?normJoinApo([m[2]]):''};
+}
+function normJoin(arr){ return normalizeText((arr||[]).filter(Boolean).join(' ')); }
+// имя файла — словесное начало текста: 'hello' ⊑ 'hello hi'
+function textPrefixMatch(rest, t){ return !!rest && !!t && (t===rest || t.startsWith(rest+' ')); }
+// текст стороны карточки/задания для сравнения с именем файла: основной текст + варианты;
+// картинки вырезаются — сторона-картинка не должна ловить аудио «по имени img dog jpg»
+function matchTextFor(c, side){
+  if(c.audioTask) return '';
+  const one=s=>normJoinApo([plainText(s)]);
+  if(side==='1') return c.type==='card' ? normJoinApo([one(c.front)].concat(c.alt1||[])) : normJoinApo([one(c.prompt)].concat(c.alt1||[]));
+  return c.type==='card' ? normJoinApo([one(c.back)].concat(c.alts||[])) : normJoinApo([one(c.answer)].concat(c.alts||[]));
+}
+// исходный (ненормализованный) текст стороны — для подсказок журнала
+function sideTextOf(c, side){
+  if(c.type==='card') return plainText(side==='1'?c.front:c.back);
+  return plainText(side==='1'?c.prompt:c.answer);
+}
+function makeDeck(meta, cards, warnings, filename){
+  const base=(filename||'Колода').replace(/\.[^.]+$/,'');
+  // нумерация записей для автосвязки медиа: карточки — отдельно, задания — отдельно,
+  // аудиозадания — отдельно; каждая с 01 в порядке появления (строки-модификаторы не считаются)
+  let nc=0, nt=0, na=0;
+  for(const c of cards){ c.num = c.audioTask ? (++na) : (c.type==='card' ? (++nc) : (++nt)); }
+  const lang=String(meta.lang||'').toLowerCase().trim();
+  const baseLang=String(meta.base||'').toLowerCase().trim();
+  // lang = base (например, оба en) — человек делает грамматику: реверс не нужен и выключается сам.
+  // Ключ шапки на двух языках: reverse: true / поворот: разрешен
+  const grammar=!!lang && !!baseLang && lang.slice(0,2)===baseLang.slice(0,2);
+  const revRaw=(meta.reverse!==undefined)?meta.reverse:meta['поворот'];
+  const rev=parseBoolWord(revRaw);
+  return {
+    title: String(meta.title||base).trim()||'Колода',
+    lang,
+    base: baseLang,
+    grammar,
+    reverse: !grammar && rev===true,
+    description: meta.description||'',
+    cards, warnings
+  };
+}
+function parseMd(text, filename){
+  const warnings=[];
+  const fm=extractFrontmatter(text);
+  let body=text, meta={};
+  if(fm){ meta=fm.meta; body=fm.body; }
+  const blocks=[]; let cur=[]; let section=null; let htags=null;
+  for(const line of body.split('\n')){
+    const h=line.match(/^\s*(#{1,6})\s+(.+?)\s*$/);
+    if(h){
+      if(cur.length){ blocks.push({section, lines:cur, htags}); cur=[]; }
+      const sec=sectionOf(h[2]);
+      if(sec){ section=sec; htags=null; } // заголовок секции — теговый контекст сбрасывается
+      else if(h[1].length>=2) htags=parseTags([h[2]]); // «## Тег» и глубже — тег для записей ниже до следующего заголовка
+      else htags=null; // одиночный «#» — декоративный, тегом не становится
+      continue;
+    }
+    if(/^\s*-{3,}\s*$/.test(line)){ blocks.push({section, lines:cur, htags}); cur=[]; continue; }
+    cur.push(line);
+  }
+  if(cur.length) blocks.push({section, lines:cur, htags});
+  const cards=[];
+  for(const b of blocks){
+    const list=parseSectionLines(b.lines, b.section, warnings);
+    for(const c of list){
+      if(b.htags && b.htags.length) c.tags=mergeTags(b.htags, c.tags);
+      cards.push(finalizeCard(c));
+    }
+  }
+  return makeDeck(meta, cards, warnings, filename);
+}
+function parseTsv(text, filename){
+  const warnings=[]; const cards=[];
+  for(const line of text.split('\n')){
+    if(!line.trim() || /^\s*#/.test(line)) continue;
+    const cols=line.split('\t').map(c=>c.trim());
+    const c1=splitVariants(cols[0]), c2=splitVariants(cols[1]);
+    if(cols.length>=3){
+      cards.push(finalizeCard({ type:'task', prompt:c1.main, answer:c2.main, alt1:c1.alts, alts:c2.alts, audio:[], tags:parseTags([cols[2]]) }));
+    } else if(cols.length>=2){
+      cards.push(finalizeCard({ type:'card', front:c1.main, back:c2.main, alt1:c1.alts, alts:c2.alts, audio:[], tags:[] }));
+    } else {
+      warnings.push('Строка без Tab-разделителя пропущена: «'+line.trim().slice(0,40)+'…»');
+    }
+  }
+  return makeDeck({}, cards, warnings, filename);
+}
+function parseDeck(text, filename){
+  text=String(text||'').replace(/\r\n?/g,'\n');
+  if(/\.txt$/i.test(filename||'')) return parseTsv(text, filename);
+  return parseMd(text, filename);
+}
+function diffTokens(answer, typed){
+  const a=String(answer||'').split(/\s+/).filter(Boolean);
+  const b=String(typed||'').split(/\s+/).filter(Boolean);
+  const n=a.length, m=b.length;
+  const eq=(x,y)=>normalizeWord(x)===normalizeWord(y);
+  const dp=Array.from({length:n+1},()=>new Uint16Array(m+1));
+  for(let i=n-1;i>=0;i--)for(let j=m-1;j>=0;j--)
+    dp[i][j]=eq(a[i],b[j]) ? dp[i+1][j+1]+1 : Math.max(dp[i+1][j], dp[i][j+1]);
+  const res=[]; let i=0,j=0;
+  while(i<n && j<m){
+    if(eq(a[i],b[j])){ res.push({t:a[i],ok:true}); i++; j++; }
+    else if(dp[i+1][j]>=dp[i][j+1]){ res.push({t:a[i],ok:false}); i++; }
+    else { j++; }
+  }
+  while(i<n){ res.push({t:a[i],ok:false}); i++; }
+  return res;
+}
+function isExact(answer, typed, alts){
+  const nt=normalizeText(typed);
+  if(!nt) return false;
+  return normalizeText(answer)===nt || (alts||[]).some(x=>normalizeText(x)===nt);
+}
+const VISIBLE_CH=/[\s¿?¡!.,;:«»"'„“”(){}\[\]\-–—…]/;
+function buildMask(target, revealed){
+  return [...String(target||'')].map((ch,i)=> (VISIBLE_CH.test(ch)||revealed.has(i)) ? ch : '•').join('');
+}
+function nextRevealIndex(target, revealed){
+  const idx=[];
+  [...String(target||'')].forEach((ch,i)=>{ if(!VISIBLE_CH.test(ch) && !revealed.has(i)) idx.push(i); });
+  if(!idx.length) return null;
+  return idx[Math.floor(Math.random()*idx.length)];
+}
+/* ---- направление изучения: какая сторона — «изучаемый язык» ---- */
+// текст стороны карточки/задания (сторона 1 = столбец 1, сторона 2 = столбец 2)
+function textOfSide(ex, side){
+  const c=ex.card;
+  if(c.audioTask) return c.answer;
+  if(side!=='2') return c.type==='card'?c.front:c.prompt;
+  return c.type==='card'?c.back:c.answer;
+}
+// письмо текста: 'ru' — кириллица, 'latin' — латиница/расширенная, '' — букв нет
+function langScript(s){
+  const t=plainText(s);
+  if(/[\u0400-\u04FF]/.test(t)) return 'ru';
+  if(/[A-Za-z\u00C0-\u024F]/.test(t)) return 'latin';
+  return '';
+}
+// письмо ЯЗЫКОВОГО КОДА: сами коды всегда пишутся латиницей («ru» — латинские буквы),
+// поэтому скрипт кода берём из явного списка кириллических языков, а не по алфавиту кода
+const CYRILLIC_LANGS=['ru','uk','be','bg','sr','mk','ky','tg','mn','kk'];
+function scriptOfLang(code){
+  return CYRILLIC_LANGS.includes(String(code||'').slice(0,2).toLowerCase()) ? 'ru' : 'latin';
+}
+// сторона изучаемого языка ('1'|'2'), null — определить не по чему.
+// По шапке (lang ≠ base) сторона находится по алфавитам сторон; алфавиты не различили —
+// считаем изучаемой сторону 1 (столбцы в файле могут быть в любом порядке).
+function targetSideOf(ex){
+  const d=ex.deck||{};
+  const l=String(d.lang||'').slice(0,2), b=String(d.base||'').slice(0,2);
+  if(!l || !b || l===b) return null;         // шапка не различает языки (или грамматика)
+  const s1=langScript(textOfSide(ex,'1')), s2=langScript(textOfSide(ex,'2'));
+  if(s1 && s2 && s1!==s2){
+    const ls=scriptOfLang(l), bs=scriptOfLang(b);
+    if(s1===ls && s2===bs) return '1';
+    if(s1===bs && s2===ls) return '2';
+  }
+  return '1';
+}
+function otherSide(s){ return s==='1'?'2':'1'; }
+// какая сторона показывается первой (face) и какая вводится/открывается (typed) — номера столбцов.
+// Семантика направления: l2l1 = «изучаемый → базовый» (видно изучаемый язык),
+// l1l2 = «базовый → изучаемый» (видно базовый язык). Направление следует за языками,
+// а не за позицией столбца: столбцы в файле могут стоять в любом порядке.
+function faceTyped(ex){
+  const c=ex.card;
+  if(c.imgTask) return {face:'1', typed:'2'};   // картинное задание: картинка всегда вопросом
+  const ts=targetSideOf(ex);
+  if(c.type==='card'){
+    if(ex.dir==='l2l1') return ts?{face:ts, typed:otherSide(ts)}:{face:'1', typed:'2'};
+    return ts?{face:otherSide(ts), typed:ts}:{face:'2', typed:'1'};
+  }
+  if(ex.dir==='l1l2') return ts?{face:otherSide(ts), typed:ts}:{face:'1', typed:'2'};
+  return ts?{face:ts, typed:otherSide(ts)}:{face:'2', typed:'1'};
+}
+/* ---- PARSER END ---- */
+
+/* ============================ storage ============================ */
+const LS={ settings:'lt.settings', decks:'lt.decks', progress:'lt.progress' };
+function loadJson(k,d){ try{ const v=JSON.parse(localStorage.getItem(k)); return v==null?d:v; }catch(e){ return d; } }
+function saveJson(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){ toast('localStorage: '+e.message); } }
+let settings=Object.assign({lang:'ru', fontScale:1, imgSize:'m', volume:0.7, muted:false, tts:true}, loadJson(LS.settings, {}));
+let deckMetas=loadJson(LS.decks, []);
+let progress=loadJson(LS.progress, {});
+LANG = I18N[settings.lang] ? settings.lang : 'ru';
+function saveSettings(){ saveJson(LS.settings, settings); }
+function saveDecks(){ saveJson(LS.decks, deckMetas); }
+function saveProgress(){ saveJson(LS.progress, progress); }
+function progKey(deckId, cardId){ return deckId+'|'+cardId; }
+function recFor(key){ return progress[key] || (progress[key]={k:0,m:0,h:0,ls:''}); }
+
+/* ============================ decks ============================ */
+const deckCache={};
+function getDeck(meta){
+  const ck=meta.id+'|'+fnv(meta.text||'');
+  if(deckCache[ck]) return deckCache[ck];
+  const fname=meta.url||meta.name||'x.md';
+  const isTxt=/\.txt$/i.test(fname);
+  const d=parseDeck(meta.text||'', isTxt?'x.txt':fname);
+  d.metaId=meta.id;
+  deckCache[ck]=d;
+  return d;
+}
+function deckIdForLocal(title){ return 'local:'+String(title||'').toLowerCase(); }
+const localAssets={}; // deckId -> {relPath: blobUrl} — медиа, выбранное вместе с конкретной колодой
+
+/* ============================ медиа-библиотека ============================ */
+// Единый индекс всех выбранных аудио и картинок (мультивыбор, папка, ZIP).
+// Предзагрузка: при выборе источник целиком индексируется в blob-URL,
+// дальше воспроизведение и показ идут из памяти — без сетевых запросов.
+const mediaLib={ files:{}, items:[], audio:0, image:0 };
+let mediaRev=0; // растёт при любом изменении библиотеки — сбрасывает кеш автосвязки
+const AUDIO_EXT=/\.(mp3|ogg|oga|m4a|aac|wav|flac|opus|weba)$/i;
+const IMAGE_EXT=/\.(png|jpe?g|gif|webp|svg|bmp|avif|ico)$/i;
+function isMediaFile(name, type){
+  if(type && /^(image|audio)\//i.test(type)) return true;
+  return AUDIO_EXT.test(name)||IMAGE_EXT.test(name);
+}
+function mimeFor(name){
+  const m=String(name).toLowerCase();
+  if(/\.mp3$/.test(m)) return 'audio/mpeg';
+  if(/\.(ogg|oga|opus)$/.test(m)) return 'audio/ogg';
+  if(/\.m4a$/.test(m)) return 'audio/mp4';
+  if(/\.aac$/.test(m)) return 'audio/aac';
+  if(/\.wav$/.test(m)) return 'audio/wav';
+  if(/\.flac$/.test(m)) return 'audio/flac';
+  if(/\.weba$/.test(m)) return 'audio/webm';
+  if(/\.png$/.test(m)) return 'image/png';
+  if(/\.jpe?g$/.test(m)) return 'image/jpeg';
+  if(/\.gif$/.test(m)) return 'image/gif';
+  if(/\.webp$/.test(m)) return 'image/webp';
+  if(/\.svg$/.test(m)) return 'image/svg+xml';
+  if(/\.bmp$/.test(m)) return 'image/bmp';
+  if(/\.avif$/.test(m)) return 'image/avif';
+  if(/\.ico$/.test(m)) return 'image/x-icon';
+  return '';
+}
+// один файл кладётся в индекс под несколькими ключами: путь целиком,
+// путь без корневой папки, имя файла и то же имя в нижнем регистре;
+// force=true — ключи перезаписываются (замена ранее загруженного файла)
+function putMediaKey(map, key, url, force){
+  if(!key) return;
+  const k=String(key).replace(/^\.\//,'').replace(/\\/g,'/');
+  if(force || !map[k]) map[k]=url;
+  if(k.indexOf('/')>=0){
+    const tail=k.slice(k.indexOf('/')+1);
+    if(tail && (force || !map[tail])) map[tail]=url;
+  }
+  const base=k.split('/').pop()||k;
+  if(force || !map[base]) map[base]=url;
+  const low=base.toLowerCase();
+  if(force || !map[low]) map[low]=url;
+}
+function mediaCount(files){
+  let a=0, i=0;
+  for(const f of files){
+    if(/^audio\//i.test(f.type||'')||(!f.type && AUDIO_EXT.test(f.name))) a++; else i++;
+  }
+  return [a,i];
+}
+// русские формы числительных: plural(5,'колода','колоды','колод') → «колод»
+function plural(n, one, few, many){
+  const m10=n%10, m100=n%100;
+  if(m10===1 && m100!==11) return one;
+  if(m10>=2 && m10<=4 && (m100<10||m100>=20)) return few;
+  return many;
+}
+function imgWord(n){ return LANG==='ru' ? plural(n,'картинка','картинки','картинок') : (n===1?'image':'images'); }
+function mediaStatsToast(n,a,i){
+  if(!n) return '';
+  return t('mediaLoaded')+': '+n+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')';
+}
+// cohort — «источник загрузки» (корень папки / имя zip / метка мультивыбора):
+// медиа и колода из одного источника связываются между собой в первую очередь
+function rootCohortOf(f){
+  const rp=String(f.webkitRelativePath||'');
+  if(rp && rp.indexOf('/')>0) return rp.split('/')[0];
+  return '';
+}
+// каноническое добавление файла в библиотеку: тот же путь — ЗАМЕНА записи
+// (старый blob-URL освобождается), а не вторая копия. Без этого повторная
+// загрузка той же папки плодила дубликаты, и автосвязка вешала на запись
+// столько кнопок «Аудио1…АудиоN», сколько раз файл загружали за сессию.
+function addMediaItem(path, blob, cohort){
+  const key=String(path||'').replace(/^\.\//,'').replace(/\\/g,'/');
+  const low=key.toLowerCase();
+  const old=low?mediaLib.items.find(x=>String(x.path||'').replace(/^\.\//,'').replace(/\\/g,'/').toLowerCase()===low):null;
+  const url=URL.createObjectURL(blob);
+  putMediaKey(mediaLib.files, key, url, true);
+  putMediaKey(mediaLib.files, blob.name||'', url, true); // имя файла рядом с .md ищется и без папки
+  if(old){ try{ URL.revokeObjectURL(old.url); }catch(e){} mediaLib.items=mediaLib.items.filter(x=>x!==old); }
+  mediaLib.items.push({path:key||String(blob.name||''), url, cohort:cohort||''});
+}
+// итоговые счётчики считаются по записям библиотеки, а не накапливаются:
+// замена дубликата не должна завышать числа
+function recountMedia(){
+  let a=0, i=0;
+  for(const it of mediaLib.items){
+    const base=(it.path||'').split('/').pop()||'';
+    if(AUDIO_EXT.test(base)) a++; else i++;
+  }
+  mediaLib.audio=a; mediaLib.image=i;
+}
+function registerMediaLib(files, defaultCohort){
+  const media=[...files].filter(f=>{
+    if(f.name.startsWith('.')) return false;
+    if(/\.zip$/i.test(f.name)) return false;
+    if(/\.(md|markdown|txt|json)$/i.test(f.name)) return false;
+    return isMediaFile(f.name, f.type);
+  });
+  if(!media.length) return 0;
+  // «призраки»: повторная загрузка того же источника (папка, zip) заменяет его
+  // содержимое ЦЕЛИКОМ — имена, переименованные или удалённые между подключениями,
+  // не должны висеть в библиотеке и ловиться автосвязкой (журнал считает их «без пары»)
+  const cohorts=new Set();
+  for(const f of media){ const c=rootCohortOf(f)||defaultCohort||''; if(c) cohorts.add(c); }
+  for(const it of mediaLib.items) if(cohorts.has(it.cohort)) it._stale=true;
+  const seen=new Set(); let n=0;
+  for(const f of media){
+    const key=String(f.webkitRelativePath||f.name).replace(/^\.\//,'').replace(/\\/g,'/');
+    const low=key.toLowerCase();
+    if(seen.has(low)) continue; // один и тот же файл дважды в пачке — запись одна
+    seen.add(low);
+    addMediaItem(key, f, rootCohortOf(f)||defaultCohort||'');
+    n++;
+  }
+  let gone=0;
+  for(const it of mediaLib.items){
+    if(!it._stale) continue;
+    try{ URL.revokeObjectURL(it.url); }catch(e){}
+    gone++;
+  }
+  if(gone){
+    mediaLib.items=mediaLib.items.filter(it=>!it._stale);
+    const live=new Set(mediaLib.items.map(it=>it.url));
+    for(const k of Object.keys(mediaLib.files)){
+      if(!live.has(mediaLib.files[k])) delete mediaLib.files[k]; // ключи убитых blob-URL больше не ищутся
+    }
+  }
+  recountMedia();
+  mediaRev++;
+  const [a,i]=[mediaLib.audio, mediaLib.image];
+  toast(mediaStatsToast(n,a,i), 4000);
+  logOk(t('logMedia')+': '+n+' ('+a+' '+t('mediaAudio')+' · '+i+' '+imgWord(i)+')');
+  return n;
+}
+function clearMediaLib(){
+  for(const k of Object.keys(mediaLib.files)){ try{ URL.revokeObjectURL(mediaLib.files[k]); }catch(e){} }
+  mediaLib.files={}; mediaLib.items=[]; mediaLib.audio=0; mediaLib.image=0;
+  for(const k of Object.keys(audioMissed)) delete audioMissed[k]; // после очистки пути можно проверить заново
+  mediaRev++;
+  logOk(t('mediaCleared'));
+}
+// поиск файла в библиотеке: точный путь → имя файла → имя в нижнем регистре
+function mediaFind(src){
+  if(/^(https?:|data:|blob:)/i.test(src)) return src;
+  const clean=String(src).replace(/^\.\//,'').replace(/\\/g,'/');
+  const lib=mediaLib.files;
+  const base=clean.split('/').pop()||clean;
+  return lib[clean]||lib[base]||lib[base.toLowerCase()]||null;
+}
+function resolverFor(metaId){
+  const meta=deckMetas.find(m=>m.id===metaId);
+  return src=>{
+    if(/^(https?:|data:|blob:)/i.test(src)) return src;
+    if(meta && meta.kind==='local'){
+      const map=localAssets[meta.id]||{};
+      const clean=src.replace(/^\.\//,'');
+      const base=clean.split('/').pop()||clean;
+      const hit=map[clean]||map[base]||map[base.toLowerCase()];
+      if(hit) return hit;
+    }
+    const g=mediaFind(src);
+    if(g) return g;
+    if(meta && meta.url){
+      try{ return new URL(src, meta.url).href; }catch(e){ return src; }
+    }
+    return src;
+  };
+}
+/* ============================ журнал ============================ */
+// Цветной журнал событий вместо разрозненных тостов: успехи — зелёным,
+// предупреждения — жёлтым, ошибки — красным. Хранится в localStorage,
+// чтобы заметить ошибку и после перезагрузки страницы.
+let logEntries=[];
+try{
+  const saved=JSON.parse(localStorage.getItem('kartochki.log')||'[]');
+  if(Array.isArray(saved)) logEntries=saved.filter(e=>e && e.msg && e.lvl);
+}catch(e){}
+// key — опциональный «адрес» записи (например, 'audio|<id колоды>'): новый вызов с тем же
+// содержимым не дублирует запись, а с изменившимся — добавляет новую (история сохраняется)
+function addLog(lvl, msg, detail, key){
+  const e={ts:nowIso(), lvl, msg:String(msg)};
+  if(detail && detail.length) e.detail=detail.map(String); // строки-детали под заголовком записи
+  if(key){
+    e.key=String(key);
+    for(let i=logEntries.length-1;i>=0;i--){
+      const p=logEntries[i];
+      if(p.key===e.key){
+        if(p.msg===e.msg && JSON.stringify(p.detail||[])===JSON.stringify(e.detail||[])) return;
+        break;
+      }
+    }
+  }
+  logEntries.push(e);
+  if(logEntries.length>500) logEntries=logEntries.slice(-500);
+  try{ localStorage.setItem('kartochki.log', JSON.stringify(logEntries)); }catch(e){}
+}
+const logOk=m=>addLog('ok',m), logWarn=(m,d)=>addLog('warn',m,d), logErr=m=>addLog('err',m);
+// сводка автосвязки по списку колод — после подключения медиа или импорта колод.
+// По каждой колоде — ОДНА запись журнала со ВСЕМИ строками отчёта: что на какую запись
+// встало, где файла нет, где номер дубль или мимо. Без обрезок — панель журнала скроллится.
+function logMatchesFor(metas){
+  let hit=false;
+  for(const m of metas){
+    const deck=getDeck(m); if(!deck) continue;
+    const mr=matchResultFor(deck);
+    const rep=mr.report||{};
+    const lines=(rep.lines||[]).map(String);
+    if(!lines.length) continue;
+    hit=true;
+    const bad=rep.warn||0;
+    const msg=fmt(bad?t('logAudioReportBad'):t('logAudioReport'),
+      {d:m.name, a:rep.voiced||0, b:rep.total||0, c:bad});
+    addLog(bad?'warn':'ok', msg, lines, 'audio|'+(m.id||deck.metaId||deck.title));
+  }
+  return hit;
+}
+function logRowHtml(e){
+  const cls=e.lvl==='ok'?'log-ok':e.lvl==='warn'?'log-warn':'log-err';
+  const ico=e.lvl==='ok'?'✔':e.lvl==='warn'?'⚠':'✖';
+  const hh=e.ts?e.ts.slice(11,19):'';
+  const det=(e.detail&&e.detail.length)?`<span class="log-sub">${e.detail.map(line=>{
+    const dc=/^✖/.test(line)?'dl-err':/^⚠/.test(line)?'dl-warn':/^✔/.test(line)?'dl-ok':'';
+    return dc?`<span class="${dc}">${esc(line)}</span>`:esc(line);
+  }).join('<br>')}</span>`:'';
+  return `<div class="log-row ${cls}"><span class="log-time">${esc(hh)}</span><span>${ico} ${esc(e.msg)}${det}</span></div>`;
+}
+function logPanelHtml(){
+  const rows=logEntries.slice().reverse().map(logRowHtml).join('');
+  return `<div class="panel" id="log-panel">
+    <h3>${esc(t('logTitle'))}<span class="spacer"></span><button class="btn btn-sm" data-act="clear-log">${esc(t('logClear'))}</button></h3>
+    ${rows?`<div class="log-list">${rows}</div>`:`<p class="muted" style="font-size:.85rem;margin:0">${esc(t('logEmpty'))}</p>`}
+  </div>`;
+}
+
+/* ============================ автосвязка аудио ============================ */
+// Порядок поиска звука для стороны карточки/задания (v1.13, «цифра — главный ключ»):
+//   1) строки audio:/audio1:/audio2: — ручное указание, всегда главный источник;
+//   2) нумерованный файл NN_текст.ext / NN.ext: цифра = номер записи (карточки и задания
+//      считаются отдельно, каждый с 01; текст после номера — не обязательная часть имени).
+//      Текст в имени выбирает сторону, когда совпадает, и работает арбитром при
+//      неоднозначности «карточка или задание»; не совпал — файл становится общей
+//      озвучкой записи (обе стороны). «Чужой» текст (узнаётся в другой записи) молча
+//      не приклеивается — файл попадает в отчёт с подсказкой переименования;
+//   3) файл без номера, имя которого равно короткому тексту стороны (до 6 слов);
+//   4) синтез речи браузера, если он включён, а файла нет (в отчёте — строка «файла нет»).
+// подстановка {плейсхолдеров} в строку перевода
+function fmt(tpl, map){ let s=String(tpl||''); for(const k in (map||{})) s=s.split('{'+k+'}').join(String(map[k])); return s; }
+const matchCache={};
+function audioMatchItems(){
+  // дедуп по «аудио-личности», а не по blob-URL: 01.mp3 и 1.mp3 — один файл,
+  // 01_Собака.mp3 из повторной загрузки — тот же файл. Без этого один и тот же
+  // звук привязывался к записи несколько раз («Аудио1 Аудио2 …», все кнопки играют одно).
+  const seen=new Set(); const out=[];
+  for(const it of mediaLib.items){
+    const base=(it.path||'').split('/').pop()||'';
+    if(!AUDIO_EXT.test(base)) continue;
+    const dot=base.lastIndexOf('.');
+    const stem=dot>0?base.slice(0,dot):base;
+    const p=parseAudioStem(stem);
+    const dk=(p.num===null?'name|'+base.toLowerCase():'num|'+p.num+'|'+String(p.rest||'').toLowerCase());
+    if(seen.has(dk)) continue; seen.add(dk);
+    out.push({name:base, num:p.num, rest:p.rest, url:it.url, used:false, cohort:it.cohort||''});
+  }
+  return out;
+}
+// Этап нумерованных файлов: цифра = номер записи. Сначала каждому файлу выбирается
+// колода-владелец (cohort → не-builtin → доказательства → порядок списка), затем запись
+// (текст имени — арбитр «карточка или задание», при ничьей — карточка с жёлтой пометкой).
+// Дальше два прохода по группе файлов одного номера: в первом встают те, чей текст
+// совпал со стороной записи (свой слот, при занятости — соседняя свободная); во втором —
+// «общие» файлы (текст не указал сторону): они озвучивают свободные стороны целиком.
+// Файл, чей текст узнаётся в ДРУГОЙ записи, не приклеивается (идёт в отчёт с подсказкой);
+// второму файлу того же номера без свободного слота остаётся «без пары» (причина «taken»).
+// Состояние колоды при автосвязке: записи (карточки и задания) с раздельной нумерацией.
+// r.card — ссылка на запись (нужна этапам и отчёту), s1n/s2n/s1h/s2h — имена файлов и способ
+// привязки параллельно со сторонами s1/s2 (в них — blob-URL для плеера).
+function deckState(deck){
+  const byId={}; const byNumC={}; const byNumT={};
+  for(const c of deck.cards){
+    if(c.audioTask || !c.num) continue;
+    const r={card:c, s1:[], s2:[], s1n:[], s2n:[], s1h:[], s2h:[]};
+    byId[c.id]=r;
+    if(c.type==='card') byNumC[c.num]=r; else byNumT[c.num]=r;
+  }
+  return {byId, byNumC, byNumT, evidence:0, bound:0, notes:[]};
+}
+// «Доказательства принадлежности» файлов колоде: сколько файлов текстом совпадает с её
+// записями. Считается ДО привязок, поэтому порядок обхода файлов не влияет на выбор
+// колоды-владельца (раньше считались фактические привязки — первый файл «прогревал» счётчик).
+function deckTextEvidence(deck, items){
+  let ev=0;
+  for(const it of items){
+    if(it.used || !it.rest) continue;
+    for(const c of deck.cards){
+      if(c.audioTask || !c.num) continue;
+      if(it.num!==null && it.num!==c.num) continue;
+      if(textPrefixMatch(it.rest, matchTextFor(c,'1')) || textPrefixMatch(it.rest, matchTextFor(c,'2'))){ ev++; break; }
+    }
+  }
+  return ev;
+}
+// этап имён без номера: имя файла = короткий текст стороны (до 6 слов, строгое равенство),
+// только на пустую сторону — как работало раньше, без изменений
+function stageNames(states, items){
+  const wc=s=>s?s.split(' ').length:0;
+  const bind=(s,r,it,side)=>{
+    r['s'+side].push(it.url); r['s'+side+'n'].push(it.name); r['s'+side+'h'].push('name');
+    it.used=true; it.how='name'; if(!it.counted){ it.counted=true; s.st.bound++; }
+  };
+  for(const s of states){
+    for(const c of s.deck.cards){
+      if(c.audioTask || !c.num) continue;
+      const r=s.st.byId[c.id];
+      const t1=matchTextFor(c,'1'), t2=matchTextFor(c,'2');
+      if(!r.s1.length && wc(t1)<=6){
+        const hit=items.find(it=>!it.used && it.num===null && it.rest && it.rest===t1);
+        if(hit) bind(s,r,hit,1);
+      }
+      if(!r.s2.length && wc(t2)<=6){
+        const hit=items.find(it=>!it.used && it.num===null && it.rest && it.rest===t2);
+        if(hit) bind(s,r,hit,2);
+      }
+    }
+  }
+}
+// приоритет колоды-кандидата для конкретного файла: сначала «своя» по cohort (файлы,
+// загруженные вместе с колодой — одна папка или один zip), затем не-builtin, затем по
+// числу текстовых доказательств; cohort есть не у всех — как раньше, по доказательствам и порядку
+function deckCandidateCompare(a, b, cohort){
+  const ca=(cohort && a.m.cohort===cohort)?0:1, cb=(cohort && b.m.cohort===cohort)?0:1;
+  if(ca!==cb) return ca-cb;
+  const av=a.builtin?1:0, bv=b.builtin?1:0;
+  if(av!==bv) return av-bv;
+  return (b.st.evidence||0)-(a.st.evidence||0);
+}
+// нумерованные файлы: цифра решает запись, текст — арбитр и выбор стороны (см. шапку секции)
+function stageNumbered(states, items){
+  const groups=new Map();
+  for(const it of items){
+    if((it.used && !it.manual) || it.num===null) continue;
+    let g=groups.get(it.num); if(!g){ g=[]; groups.set(it.num,g); }
+    g.push(it);
+  }
+  // тексты всех записей всех пользовательских колод — для проверки «чужого» файла
+  const claims=[];
+  for(const s of states){
+    if(s.builtin) continue;
+    for(const c of s.deck.cards){
+      if(c.audioTask || !c.num) continue;
+      claims.push({id:c.id, t1:matchTextFor(c,'1'), t2:matchTextFor(c,'2')});
+    }
+  }
+  const isForeign=(rest, exceptId)=> claims.some(cl=>cl.id!==exceptId &&
+    (textPrefixMatch(rest, cl.t1) || textPrefixMatch(rest, cl.t2)));
+  const bind=(s, rec, it, side, how)=>{
+    rec['s'+side].push(it.url); rec['s'+side+'n'].push(it.name); rec['s'+side+'h'].push(how);
+    it.used=true; it.how=how; if(!it.counted){ it.counted=true; s.st.bound++; }
+  };
+  const nums=[...groups.keys()].sort((a,b)=>a-b);
+  for(const n of nums){
+    const files=groups.get(n).slice().sort((a,b)=>(a.name<b.name?-1:a.name>b.name?1:0));
+    const chosen=[];
+    for(const it of files){
+      const decks=states.filter(s=>!s.builtin && (s.st.byNumC[n] || s.st.byNumT[n]));
+      if(!decks.length){ it.orphan='num'; it.orphanNum=n; chosen.push(null); continue; }
+      decks.sort((a,b)=>deckCandidateCompare(a,b,it.cohort||''));
+      const s=decks[0];
+      const rc=s.st.byNumC[n], rt=s.st.byNumT[n];
+      let rec=rc||rt, arb=false;
+      if(rc && rt){ // есть и карточка, и задание с этим номером — текст решает, при ничьей карточка
+        const hitC=it.rest && (textPrefixMatch(it.rest, matchTextFor(rc.card,'1')) || textPrefixMatch(it.rest, matchTextFor(rc.card,'2')));
+        const hitT=it.rest && (textPrefixMatch(it.rest, matchTextFor(rt.card,'1')) || textPrefixMatch(it.rest, matchTextFor(rt.card,'2')));
+        if(hitC && !hitT) rec=rc;
+        else if(hitT && !hitC) rec=rt;
+        else { rec=rc; arb=true; }
+      }
+      chosen.push({it, s, rec, arb});
+    }
+    // проход 1 — текст указывает сторону: свой слот, при занятости соседний свободный.
+    // Ручные (manual) файлы участвуют только здесь — проход 2 им не положен
+    for(const ch of chosen){
+      if(!ch || (ch.it.used && !ch.it.manual)) continue;
+      const it=ch.it, rec=ch.rec;
+      const t1=matchTextFor(rec.card,'1'), t2=matchTextFor(rec.card,'2');
+      const m1=it.rest && textPrefixMatch(it.rest,t1), m2=it.rest && textPrefixMatch(it.rest,t2);
+      if(m1 && !m2){
+        if(!rec.s1.length) bind(ch.s,rec,it,1,'text');
+        else if(!rec.s2.length) bind(ch.s,rec,it,2,'text');
+        else { it.orphan='taken'; it.orphanNum=n; }
+      } else if(m2 && !m1){
+        if(!rec.s2.length) bind(ch.s,rec,it,2,'text');
+        else if(!rec.s1.length) bind(ch.s,rec,it,1,'text');
+        else { it.orphan='taken'; it.orphanNum=n; }
+      }
+    }
+    // проход 2 — «общие» файлы (текст не указал сторону или его нет): свободные стороны;
+    // текст, узнающийся в другой записи, молча не приклеиваем — пусть идёт в отчёт с подсказкой
+    for(const ch of chosen){
+      if(!ch || ch.it.used) continue;
+      const it=ch.it, rec=ch.rec;
+      if(it.rest && isForeign(it.rest, rec.card.id)){ it.orphan='foreign'; it.orphanNum=n; continue; }
+      let any=false;
+      if(!rec.s1.length){ bind(ch.s,rec,it,1,'num'); any=true; }
+      if(!rec.s2.length){ bind(ch.s,rec,it,2,'num'); any=true; }
+      if(!any){ it.orphan='taken'; it.orphanNum=n; }
+    }
+    for(const ch of chosen){ // жёлтая пометка арбитража — только если файл реально встал
+      if(ch && ch.arb && ch.it.used)
+        ch.s.st.notes.push(fmt(t('logArbCard'), {f:ch.it.name, n:recordLabel(ch.s, ch.rec.card)}));
+    }
+  }
+}
+// подпись записи в отчёте: «№4», а при смешанной колоде — «карточка №1» / «задание №1»
+function recordLabel(s, c){
+  const hasC=s.deck.cards.some(x=>x.type==='card' && !x.audioTask);
+  const hasT=s.deck.cards.some(x=>x.type==='task' && !x.audioTask);
+  return (hasC && hasT) ? fmt(c.type==='card'?t('logRecCard'):t('logRecTask'), {n:c.num}) : '№'+c.num;
+}
+// общий конвейер этапов над готовыми state'ами колод (общие items с флагами used).
+// manual — имена файлов, уже привязанных строками audio:/audio1:/audio2: (см. manualAudioNames)
+function runAudioPipeline(states, items, manual){
+  for(const s of states) s.st.evidence=deckTextEvidence(s.deck, items);
+  // ручные строки audio: — главный источник: такие файлы этапам не достаются, кроме
+  // прохода 1 нумерованных (текстовое связывание, как это делала старая фаза 1)
+  for(const it of items) if(manual.has(it.name.toLowerCase())){ it.used=true; it.manual=true; }
+  stageNames(states, items);
+  stageNumbered(states, items);
+  buildAudioReports(states, items, manual);
+  for(const s of states) for(const r of Object.values(s.st.byId)) delete r.card; // ссылка наружу не идёт
+}
+// Подробный отчёт по каждой пользовательской колоде: rep.lines — строка на каждую запись
+// («№4 → 04_…mp3 (сторона 2, по тексту)», «№5 «…» — файла нет (синтез речи)») плюс строки
+// неиспользованных файлов с подсказками переименования; rep.warn — число ⚠/✖ строк;
+// rep.voiced/rep.total — сколько записей озвучено (включая ручные audio:) из сколько.
+// Файлы, привязанные строками audio:/audio2:, в «без пары» не попадают — у них пара есть.
+function buildAudioReports(states, items, manual){
+  const pool=states.filter(s=>!s.builtin);
+  const ownerCompare=(a,b,cohort)=>{
+    const ca=(cohort && a.m.cohort===cohort)?0:1, cb=(cohort && b.m.cohort===cohort)?0:1;
+    if(ca!==cb) return ca-cb;
+    const pa=(a.st.evidence>0)?0:1, pb=(b.st.evidence>0)?0:1;
+    if(pa!==pb) return pa-pb;
+    return (b.st.evidence||0)-(a.st.evidence||0);
+  };
+  // чей это текст? ищем по всем пользовательским колодам — файл мог получить
+  // чужой номер (04_Put_some_sugar_in при занятом №4), но текст всё равно узнаётся
+  const claims=[];
+  for(const s of pool){
+    for(const c of s.deck.cards){
+      if(c.audioTask || !c.num) continue;
+      claims.push({card:c, st:s.st, t1:matchTextFor(c,'1'), t2:matchTextFor(c,'2')});
+    }
+  }
+  for(const it of items){
+    if(it.used) continue;
+    if(manual && manual.has(it.name.toLowerCase())) continue;
+    if(!pool.length) continue;
+    const owner=pool.slice().sort((a,b)=>ownerCompare(a,b,it.cohort||''))[0];
+    let sugg=null;
+    if(it.rest){
+      const cands=[];
+      for(const cl of claims){
+        const side=textPrefixMatch(it.rest, cl.t1) ? 1 : textPrefixMatch(it.rest, cl.t2) ? 2 : 0;
+        if(side) cands.push({cl, side});
+      }
+      if(cands.length){
+        cands.sort((a,b)=>{
+          const oa=(a.cl.st===owner.st)?0:1, ob=(b.cl.st===owner.st)?0:1;
+          if(oa!==ob) return oa-ob;
+          return (b.cl.st.evidence||0)-(a.cl.st.evidence||0);
+        });
+        const best=cands[0];
+        const r=best.cl.st.byId[best.cl.card.id];
+        const dup=!!(r && (best.side===1?r.s1:r.s2).length); // на записи уже есть файл с правильным номером
+        const stemTail=String(it.name).replace(/^\d{1,3}[\s._-]+/,'');
+        sugg={num:best.cl.card.num, expected:String(best.cl.card.num).padStart(2,'0')+'_'+stemTail, dup,
+          text:sideTextOf(best.cl.card, String(best.side))};
+      }
+    }
+    const reason=it.orphan || (it.num===null?'text':'num');
+    owner.report.unused.push({name:it.name, sugg, reason, orphanNum:it.orphanNum});
+    owner.unmatched.push(it.name);
+  }
+  for(const s of pool){
+    if(!(s.st.bound>0) && !s.report.unused.length && !s.st.notes.length) continue; // медиа не касается колоды
+    const rep={lines:[], unused:s.report.unused, missing:[], voiced:0, total:0, warn:0};
+    for(const c of s.deck.cards){
+      if(c.audioTask || !c.num) continue;
+      rep.total++;
+      const lbl=recordLabel(s, c);
+      const r=s.st.byId[c.id];
+      if(r && (r.s1.length || r.s2.length)){
+        rep.voiced++;
+        const same=r.s1.length===r.s2.length && r.s1.every((u,i)=>u===r.s2[i]);
+        const sides= same ? t('logSideBoth')
+          : r.s1.length && r.s2.length ? t('logSide1')+' / '+t('logSide2')
+          : r.s1.length ? t('logSide1') : t('logSide2');
+        const how=(r.s1h[0]==='text'||r.s2h[0]==='text') ? t('logByText')
+          : (r.s1h[0]==='name'||r.s2h[0]==='name') ? t('logByName') : t('logByNum');
+        rep.lines.push('✔ '+fmt(t('logRowBound'), {n:lbl, f:r.s1n[0]||r.s2n[0]||'', s:sides, h:how}));
+      } else if((c.audio&&c.audio.length)||(c.audio1&&c.audio1.length)||(c.audio2&&c.audio2.length)){
+        rep.voiced++;
+        const man=(c.audio1&&c.audio1.length?c.audio1:c.audio&&c.audio.length?c.audio:c.audio2)||[];
+        rep.lines.push('✔ '+fmt(t('logRowManual'), {n:lbl, f:String(man[0]).split('/').pop()}));
+      } else {
+        const t2=matchTextFor(c,'2'), t1=matchTextFor(c,'1');
+        const txt=t2||t1; if(!txt) continue;
+        rep.lines.push('⚠ '+fmt(t('logRowNone'), {n:lbl, t:sideTextOf(c, t2?'2':'1')}));
+        rep.warn++;
+        rep.missing.push({num:c.num, text:sideTextOf(c, t2?'2':'1'),
+          expected:String(c.num).padStart(2,'0')+'_'+txt.slice(0,60).split(' ').join('_')});
+      }
+    }
+    for(const note of s.st.notes){ rep.lines.push('⚠ '+note); rep.warn++; }
+    for(const u of s.report.unused){ // полный список, без обрезок
+      if(u.sugg){
+        rep.lines.push('⚠ '+fmt(u.sugg.dup?t('logSuggDup'):t('logSugg'),
+          {f:u.name, n:u.sugg.num, t:u.sugg.text, d:u.sugg.expected})); // expected уже с расширением файла
+      } else if(u.reason==='taken'){
+        rep.lines.push('⚠ '+fmt(t('logTakenRow'), {f:u.name, n:u.orphanNum||''}));
+      } else {
+        rep.lines.push('⚠ '+fmt(u.reason==='num'?t('logUnownedNum'):t('logUnownedText'), {f:u.name}));
+      }
+      rep.warn++;
+    }
+    s.report=rep;
+  }
+}
+// имена файлов, уже привязанные строками audio:/audio1:/audio2: — по всем колодам
+// (extraDeck — для колоды вне deckMetas, например тестовой). Такие файлы могут
+// автосвязываться с другими записями, но в отчёте «Аудио без пары» шума не создают.
+function manualAudioNames(extraDeck){
+  const set=new Set();
+  const scan=d=>{ for(const c of d.cards){
+    for(const arr of [c.audio, c.audio1, c.audio2]){
+      for(const s of (arr||[])) if(s) set.add(String(s).split('/').pop().toLowerCase());
+    }
+  } };
+  for(const m of deckMetas){ const d=getDeck(m); if(d) scan(d); }
+  if(extraDeck) scan(extraDeck);
+  return set;
+}
+// все колоды считаются в порядке приоритета: пользовательские раньше встроенных,
+// иначе встроенная демо-колода перетянет нумерованные файлы пользователя (01.mp3 → её карточка №1)
+function computeAllMatches(){
+  const revKey='computed|'+mediaRev;
+  if(matchCache[revKey]) return;
+  const items=audioMatchItems();
+  const metas=deckMetas.slice().sort((a,b)=>(a.kind==='builtin'?1:0)-(b.kind==='builtin'?1:0));
+  const manual=manualAudioNames();
+  const mkReport=()=>({lines:[], unused:[], missing:[], voiced:0, total:0, warn:0});
+  const states=[];
+  for(const m of metas){
+    const deck=getDeck(m);
+    if(!deck){ matchCache[m.id+'|'+mediaRev]={byId:{}, unmatched:[], matchedCount:0, report:mkReport()}; continue; }
+    states.push({m, deck, builtin:m.kind==='builtin', st:deckState(deck), unmatched:[], report:mkReport()});
+  }
+  runAudioPipeline(states, items, manual);
+  for(const s of states){
+    matchCache[s.m.id+'|'+mediaRev]={byId:s.st.byId, unmatched:s.unmatched, matchedCount:s.st.bound, report:s.report};
+  }
+  matchCache[revKey]=true;
+}
+function matchResultFor(deck){
+  const mkEmpty=()=>({byId:{}, unmatched:[], matchedCount:0, report:{lines:[], unused:[], missing:[], voiced:0, total:0, warn:0}});
+  const empty=mkEmpty();
+  if(!deck) return empty;
+  const key=(deck.metaId||'local')+'|'+mediaRev;
+  if(!matchCache[key]){
+    computeAllMatches();
+    if(!matchCache[key]){ // колода не из deckMetas (тесты) — считаем на клоне файлов
+      const items=audioMatchItems().map(it=>Object.assign({}, it));
+      const st=deckState(deck);
+      const state={m:{id:deck.metaId||'local', cohort:deck.cohort}, deck, builtin:deck.builtinMatch===true, st, unmatched:[], report:{lines:[], unused:[], missing:[], voiced:0, total:0, warn:0}};
+      runAudioPipeline([state], items, manualAudioNames(deck));
+      matchCache[key]={byId:st.byId, unmatched:state.unmatched, matchedCount:st.bound, report:state.report};
+    }
+  }
+  const r=matchCache[key];
+  return r ? Object.assign(mkEmpty(), r) : empty;
+}
+function matchedAudioFor(ex, side){
+  const res=matchResultFor(ex.deck);
+  const r=res.byId[ex.card.id];
+  return r ? ((side==='2'?r.s2:r.s1)||[]) : [];
+}
+function upsertDeck(meta){
+  const i=deckMetas.findIndex(d=>d.id===meta.id);
+  if(i>=0) deckMetas[i]=meta; else deckMetas.push(meta);
+  saveDecks();
+}
+function addDeckFromText(text, name, kind, url, cohort){
+  const deck=parseDeck(text, url||name);
+  if(!deck.cards.length){ toast(t('parseEmpty')); return null; }
+  const id = kind==='url' ? 'url:'+url : deckIdForLocal(deck.title);
+  const meta={ id, kind, name:deck.title, url:url||'', text, savedAt:nowIso() };
+  const ch=cohort||'';
+  const prev=deckMetas.find(d=>d.id===id);
+  if(ch) meta.cohort=ch; // «своя» папка/архив: медиа из того же источника приоритетнее
+  else if(prev && prev.cohort) meta.cohort=prev.cohort; // перезагрузка без папки не рвёт связь
+  delete meta.error;
+  upsertDeck(meta);
+  // замечания разбора — в журнал: плитки колод показывают только счётчики
+  if(deck.warnings && deck.warnings.length){
+    logWarn(t('logParseWarns')+': '+deck.warnings.length+' — «'+deck.title+'» · '+deck.warnings.slice(0,3).join(' · ')+(deck.warnings.length>3?'…':''));
+  }
+  return meta;
+}
+function demoDeckMeta(){
+  return { id:'builtin:demo-en', kind:'builtin', name:'Test', url:'', text:DEMO_DECK, savedAt:nowIso() };
+}
+function seedBuiltins(){
+  let changed=false;
+  // миграция: старая испанская демо-колода заменяется английской
+  const legacy=deckMetas.findIndex(d=>d.id==='builtin:demo-es');
+  if(legacy>=0){ deckMetas.splice(legacy,1); changed=true; }
+  const demoId='builtin:demo-en';
+  const dm=deckMetas.find(d=>d.id===demoId);
+  if(!dm){
+    deckMetas.unshift(demoDeckMeta());
+    changed=true;
+  } else if(dm.text!==DEMO_DECK){
+    // встроенная демо-колода всегда синхронизируется с текущей версией сайта; прогресс сохраняется по id карточек
+    dm.text=DEMO_DECK;
+    dm.name=demoDeckMeta().name;
+    changed=true;
+  }
+  for(const r of RECOMMENDED_DECKS){
+    if(!r.url) continue;
+    const id='builtin:'+fnv(r.url);
+    if(!deckMetas.some(d=>d.id===id)){
+      deckMetas.push({ id, kind:'builtin', name:r.name||r.url, url:r.url, text:'', savedAt:'' });
+      changed=true;
+      fetchDeckText(id, true);
+    }
+  }
+  if(changed) saveDecks();
+}
+async function fetchDeckText(id, silent){
+  const m=deckMetas.find(d=>d.id===id);
+  if(!m || !m.url) return;
+  try{
+    const res=await fetch(m.url, {cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    m.text=await res.text();
+    m.savedAt=nowIso();
+    delete m.error;
+    const d=parseDeck(m.text, m.url);
+    if(d.cards.length) m.name=d.title;
+    saveDecks();
+    logOk(t('updated')+' — «'+m.name+'»');
+    if(!silent){ toast(t('updated')); rerender(); }
+    else rerender();
+  }catch(e){
+    m.error=e.message; saveDecks();
+    logErr(t('fetchFail')+' — «'+m.name+'»: '+e.message);
+    if(!silent){ toast(t('fetchFail')+': '+e.message); rerender(); }
+    else rerender();
+  }
+}
+
+/* ============================ audio ============================ */
+// путь к аудио пробуем по цепочке: blob из выбранных файлов → медиа-библиотека → рядом со страницей → от URL колоды → как написано
+function audioCandidates(src, metaId){
+  const out=[]; const push=u=>{ if(u && !out.includes(u)) out.push(u); };
+  if(/^(https?:|data:|blob:)/i.test(src)){ push(src); return out; }
+  const meta=deckMetas.find(m=>m.id===metaId);
+  if(meta && meta.kind==='local'){
+    const map=localAssets[meta.id]||{};
+    const clean=src.replace(/^\.\//,'');
+    const base=clean.split('/').pop()||clean;
+    push(map[clean]); push(map[base]); push(map[base.toLowerCase()]);
+  }
+  push(mediaFind(src));
+  try{ push(new URL(src, location.href).href); }catch(e){}
+  if(meta && meta.url){ try{ push(new URL(src, meta.url).href); }catch(e){} }
+  push(src);
+  return out;
+}
+const audioMissed={}; // тост «Аудио недоступно» — один раз на путь, без спама
+function tryAudioCand(cands, i, src){
+  if(i>=cands.length){
+    if(!audioMissed[src]){
+      audioMissed[src]=true;
+      toast(t('audioFail')+': '+src);
+      logErr(t('audioFail')+': '+src); // тот же факт — в журнал
+    }
+    return;
+  }
+  let settled=false;
+  const next=err=>{
+    if(settled) return; settled=true;
+    if(err && err.name==='NotAllowedError'){ toast(t('audioBlocked')); return; }
+    tryAudioCand(cands, i+1, src);
+  };
+  try{
+    const a=new Audio(cands[i]);
+    a.volume=outVolume();
+    a.addEventListener('error', ()=>next(null), {once:true});
+    const p=a.play();
+    if(p && p.then) p.then(()=>{ settled=true; delete audioMissed[src]; }).catch(next);
+    else settled=true;
+  }catch(e){ next(null); }
+}
+function playAudioUrl(src, metaId){
+  tryAudioCand(audioCandidates(src, metaId), 0, src);
+}
+// audio/audio1 — озвучка стороны 1 (front/prompt), audio2 — стороны 2 (back/answer).
+// Если строк audio нет — берётся автосвязка (нумерация NN_текст / NN / имя файла).
+function audio1Of(c){ return ((c.audio1||[]).concat(c.audio||[])).filter(Boolean); }
+function audio2Of(c){ return (c.audio2||[]).filter(Boolean); }
+function audioListFor(ex, side){
+  const list = side==='2' ? audio2Of(ex.card) : audio1Of(ex.card);
+  const src=list.length?list:matchedAudioFor(ex, side);
+  // страховка от повторов: один файл — одна кнопка
+  const out=[], seen=new Set();
+  for(const u of src){ if(u && !seen.has(u)){ seen.add(u); out.push(u); } }
+  return out;
+}
+
+/* ============================ синтез речи ============================ */
+// Запаска для сторон без своего аудио (особенно предложения): текст читает голос браузера.
+// Язык берётся из шапки колоды (lang/base), при неопределённости — по алфавиту текста.
+// Включение/выключение: настройки на главной и кнопка 🗣 в сессии; громкость — общий слайдер.
+// Голоса Chrome отдаёт не сразу (getVoices() пуст до voiceschanged) — без ожидания
+// браузер читает системным голосом по умолчанию: на русской Windows всё звучит по-русски.
+let ttsVoices=[]; let ttsVoicesReady=false;
+function initVoices(){
+  if(!('speechSynthesis' in window)) return;
+  const load=()=>{ try{ const v=speechSynthesis.getVoices(); if(v && v.length){ ttsVoices=v; ttsVoicesReady=true; } }catch(e){} };
+  load();
+  try{ speechSynthesis.addEventListener('voiceschanged', load, {once:false}); }
+  catch(e){ try{ speechSynthesis.onvoiceschanged=load; }catch(e2){} }
+}
+function pickVoice(prefix){
+  if(!ttsVoices.length) return null;
+  const pref=String(prefix||'').toLowerCase();
+  if(!pref) return null;
+  const scored=ttsVoices.filter(v=>v.lang && v.lang.toLowerCase().replace('_','-').startsWith(pref));
+  // локальные (установленные в системе) голоса обычно качественнее сетевых
+  return scored.find(v=>v.localService) || scored[0] || null;
+}
+function ttsAvailable(){
+  return ('speechSynthesis' in window) && settings.tts!==false && !settings.muted;
+}
+function stopSpeech(){ try{ if('speechSynthesis' in window) speechSynthesis.cancel(); }catch(e){} }
+function outVolume(){ return settings.muted?0:Math.max(0,Math.min(1,Number(settings.volume)||0)); }
+function localeFor(prefix){
+  const map={en:'en-US',ru:'ru-RU',es:'es-ES',fr:'fr-FR',de:'de-DE',it:'it-IT',pt:'pt-PT',uk:'uk-UA',pl:'pl-PL',tr:'tr-TR'};
+  return map[prefix] || (prefix?prefix+'-'+prefix.toUpperCase():'');
+}
+// язык голоса для стороны: сначала алфавит самого текста (кириллица → ru всегда),
+// латиница → объявленный язык этой стороны из шапки, если он латинский, иначе en;
+// букв нет — объявленный язык стороны, в последнюю очередь en.
+// Так колонки «наоборот» (родный язык слева) не заставляют синтез читать русский текст английским голосом.
+function sideLang(ex, side){
+  const d=ex.deck||{};
+  const declared=String(side==='2'?(d.base||''):(d.lang||'')).toLowerCase().slice(0,2);
+  const scr=langScript(textOfSide(ex, side));
+  if(scr==='ru') return 'ru';
+  if(scr==='latin') return (declared && declared!=='ru') ? declared : 'en';
+  if(declared) return declared;
+  return 'en';
+}
+// текст для синтеза речи — чистый текст без маркдауна (plainText из парсера):
+// разметка (картинки, ссылки, html) читалась бы вслух как «img dog jpg»; для стороны,
+// где кроме картинки ничего нет, остаётся пустота — и озвучки не будет
+function speechText(s){
+  return plainText(s);
+}
+function speakSide(ex, side){
+  if(!ttsAvailable()) return;
+  const text=speechText(textOfSide(ex, side));
+  if(!text) return;
+  let prefix=sideLang(ex, side);
+  if(!prefix) prefix=/[\u0400-\u04FF]/.test(text)?'ru':'en';
+  speak(text, prefix);
+}
+function speak(text, prefix){
+  if(!ttsAvailable() || !text) return;
+  stopSpeech();
+  const go=()=>{
+    try{
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang=localeFor(prefix)||'en-US';
+      u.volume=outVolume();
+      const v=pickVoice(prefix);
+      if(v) u.voice=v;
+      speechSynthesis.speak(u);
+    }catch(e){}
+  };
+  if(ttsVoicesReady){ go(); return; }
+  // голоса ещё не пришли (первое обращение) — ждём voiceschanged, максимум 1.2 с
+  let done=false;
+  const fire=()=>{ if(done) return; done=true; go(); };
+  try{
+    speechSynthesis.addEventListener('voiceschanged', fire, {once:true});
+  }catch(e){ try{ speechSynthesis.onvoiceschanged=fire; }catch(e2){} }
+  setTimeout(()=>{ try{ speechSynthesis.removeEventListener('voiceschanged', fire); }catch(e){}
+    initVoices(); fire(); }, 1200);
+}
+// сторона, которая показывается первой (до переворота/раскрытия)
+function initialFaceSide(ex){
+  return faceTyped(ex).face;
+}
+// сторона, которая на экране прямо сейчас
+function currentFaceSide(ex){
+  const ft=faceTyped(ex);
+  const shown=(ex.card.type==='card') ? S.flipped : S.revealed;
+  return shown ? ft.typed : ft.face;
+}
+// автоплей: ровно один раз на показ стороны (клик/клавиша уже были — браузер разрешает звук).
+// Файла нет → синтез речи (если включён).
+function playFaceAudio(ex, side){
+  const list=audioListFor(ex, side);
+  if(list.length){ playAudioUrl(list[0], ex.deck.metaId); return; }
+  speakSide(ex, side);
+}
+
+/* ============================ session ============================ */
+let S=null;          // текущая сессия
+let pendingSetup=null;
+function startSession(config){
+  const decks=config.deckIds
+    .map(id=>{ const m=deckMetas.find(x=>x.id===id); return m?getDeck(m):null; })
+    .filter(Boolean);
+  const exs=[];
+  for(const d of decks){
+    for(const c of d.cards){
+      // режим сессии фильтрует тип упражнений: в «Заданиях» карточек быть не должно
+      if(config.mode==='cards' && c.type!=='card') continue;
+      if(config.mode==='tasks' && c.type!=='task') continue;
+      if(config.tags.length && !c.tags.some(tg=>config.tags.includes(tg))) continue;
+      let dirs;
+      if(c.type==='card'){
+        const rev=(c.reverse!==undefined)?c.reverse:d.reverse;
+        dirs=rev?['l2l1','l1l2']:['l2l1'];
+      } else if(d.grammar && !c.audioTask){
+        // грамматическая колода (lang = base): направление одно — «вопрос → ответ»
+        dirs=[c.direction||'l1l2'];
+      } else {
+        // без реверса задание идёт в одну сторону (Базовый → Изучаемый);
+        // reverse: true в шапке разрешает и обратное
+        const dir=c.direction||(d.reverse?'both':'l1l2');
+        dirs=dir==='both'?['l1l2','l2l1']:[dir];
+      }
+      for(const dir of dirs){
+        if(config.direction!=='mixed' && config.direction!==dir) continue;
+        if(config.onlyMistakes){
+          const r=progress[progKey(d.metaId,c.id)];
+          if(!r || !r.m) continue;
+        }
+        exs.push({deck:d, card:c, dir});
+      }
+    }
+  }
+  if(!exs.length){ toast(t('noCards')); return; }
+  shuffle(exs);
+  const list=config.size ? exs.slice(0, config.size) : exs;
+  S={ exs:list, i:0, flipped:false, revealed:false, typed:'', showHint:false,
+      revealedLetters:new Set(), hintPresses:0, hintsTotal:0,
+      ok:0, bad:0, done:false, config };
+  playFaceAudio(cur(), initialFaceSide(cur()));
+  if(location.hash==='#/session') rerender(); else location.hash='#/session';
+}
+function cur(){
+  const ex=S.exs[S.i];
+  return { deck:ex.deck, card:ex.card, dir:S.dirOverrides && S.dirOverrides[S.i] ? S.dirOverrides[S.i] : ex.dir, idx:S.i };
+}
+function sides(ex){
+  const ft=faceTyped(ex);
+  return { a:textOfSide(ex, ft.face), b:textOfSide(ex, ft.typed), face:ft.face, typed:ft.typed };
+}
+function resetExerciseState(){
+  S.flipped=false; S.revealed=false; S.typed=''; S.showHint=false;
+  S.revealedLetters=new Set(); S.hintPresses=0; S.flipAnim=null;
+}
+// разрешено ли упражнению менять направление (кнопка ⇄ / клавиша F)?
+// запрещено: аудио- и картинным заданиям, заданиям с direction в файле,
+// всем упражнениям колоды без реверса (reverse: false / поворот: запрещен
+// в шапке, lang = base) — задание так же не переворачивается, как и карточка;
+// карточка без реверса (reverse: false у карточки) не переворачивается даже
+// при reverse: true в шапке
+function canFlipDir(ex){
+  const c=ex.card, d=ex.deck;
+  if(c.imgTask) return false;
+  if(c.type==='task') return !!d.reverse && (!c.direction || c.direction==='both');
+  const rev=(c.reverse!==undefined)?c.reverse:d.reverse;
+  return !!rev;
+}
+function flipDir(){
+  const ex=cur();
+  if(!canFlipDir(ex)){
+    const c=ex.card;
+    toast(c.type==='card' ? t('dirNoRev')
+      : (c.direction && c.direction!=='both' ? t('dirFixed') : t('dirNote')));
+    return;
+  }
+  const other=ex.dir==='l2l1'?'l1l2':'l2l1';
+  S.dirOverrides=S.dirOverrides||{};
+  S.dirOverrides[S.i]=other;
+  resetExerciseState();
+  playFaceAudio(cur(), initialFaceSide(cur()));
+  rerender();
+}
+function grade(ok){
+  const ex=cur();
+  const rec=recFor(progKey(ex.deck.metaId, ex.card.id));
+  if(ok){ rec.k++; S.ok++; } else { rec.m++; S.bad++; }
+  rec.h=(rec.h||0)+S.hintPresses;
+  rec.ls=nowIso();
+  saveProgress();
+  S.i++;
+  resetExerciseState();
+  if(S.i>=S.exs.length){ S.done=true; }
+  else playFaceAudio(cur(), initialFaceSide(cur()));
+  rerender();
+}
+function actReveal(){
+  if(!S || S.done) return;
+  const ex=cur();
+  if(ex.card.type!=='task' || S.revealed) return;
+  const inp=document.getElementById('typed');
+  if(inp) S.typed=inp.value;
+  S.revealed=true;
+  playFaceAudio(cur(), currentFaceSide(cur()));
+  rerender();
+}
+function actHint(){
+  if(!S || S.done) return;
+  const ex=cur();
+  if(ex.card.type==='card'){
+    if(!ex.card.hint) return;
+    S.showHint=!S.showHint;
+    rerender();
+    return;
+  }
+  if(S.revealed) return;
+  const b=sides(ex).b;
+  const idx=nextRevealIndex(b, S.revealedLetters);
+  if(idx==null){ toast(t('hintAllShown')); return; }
+  S.revealedLetters.add(idx);
+  S.hintPresses++; S.hintsTotal++;
+  rerender();
+}
+
+/* ============================ views ============================ */
+function langSwitch(){
+  return `<span class="lang-switch">
+    <button class="${LANG==='ru'?'on':''}" data-act="set-lang" data-arg="ru">RU</button>
+    <button class="${LANG==='en'?'on':''}" data-act="set-lang" data-arg="en">EN</button>
+  </span>`;
+}
+function deckStatsHtml(m){
+  const deck=getDeck(m);
+  const nc=deck?deck.cards.filter(c=>c.type==='card').length:0;
+  const nt=deck?deck.cards.filter(c=>c.type==='task').length:0;
+  let k=0, mm=0;
+  if(deck){
+    for(const c of deck.cards){ const r=progress[progKey(m.id,c.id)]; if(r){ k+=r.k; mm+=r.m; } }
+  }
+  // плитка — только счётчики и ✓/✗; замечания разбора, «Аудио без пары»
+  // и ошибки загрузки живут в журнале (панель «Журнал» на главной)
+  const badge=m.kind==='builtin'?t('badgeBuiltin'):m.kind==='url'?t('badgeUrl'):t('badgeLocal');
+  return `<div class="deck">
+    <div><span class="name">${esc(m.name)}</span><span class="badge">${esc(badge)}</span></div>
+    <div class="meta"><span>${nc} ${esc(t('cardsCount'))}</span><span>${nt} ${esc(t('tasksCount'))}</span><span title="${esc(t('statKnew'))}">✓ ${k}</span><span title="${esc(t('statMissed'))}">✗ ${mm}</span></div>
+    <div class="row">
+      <button class="btn btn-primary btn-sm" data-act="open-setup" data-arg="${esc(m.id)}">${esc(t('train'))}</button>
+      ${m.kind==='local'
+        ? `<button class="btn btn-sm" data-act="reupload" data-arg="${esc(m.id)}">${esc(t('refresh'))}</button>`
+        : `<button class="btn btn-sm" data-act="refresh" data-arg="${esc(m.id)}">${esc(t('refresh'))}</button>`}
+      <span class="spacer"></span>
+      <button class="btn btn-sm btn-danger" data-act="delete" data-arg="${esc(m.id)}">${esc(t('delete'))}</button>
+    </div>
+  </div>`;
+}
+function homeView(){
+  const decks=deckMetas.map(deckStatsHtml).join('');
+  const demoMissing=!deckMetas.some(d=>d.id==='builtin:demo-en');
+  return `
+  <div class="top">
+    <h1>${esc(t('appName'))} <span class="muted" style="font-size:.8rem;font-weight:400">${esc(t('tagline'))}</span></h1>
+    <div class="right">${langSwitch()}<a class="btn btn-sm" href="#/instruction">${esc(t('navInstruction'))}</a></div>
+  </div>
+  <div class="home-top">
+    <div class="panel" style="margin-top:0">
+      <h3 class="panel-title">${esc(t('settingsTitle'))}</h3>
+      <div class="set-row"><span class="set-name">${esc(t('fontSize'))}</span>${fontScaleSel()}</div>
+      <div class="set-row"><span class="set-name">${esc(t('imgSize'))}</span>${imgSizeSel()}</div>
+      <div class="set-row"><span class="set-name">${esc(t('tts'))}</span><button class="btn btn-sm ${settings.tts?'':'off'}" data-act="toggle-tts" title="${esc(settings.tts?t('ttsOn'):t('ttsOff'))}" aria-pressed="${settings.tts?'true':'false'}">🗣️</button></div>
+      <div class="set-row"><span class="set-name">${esc(t('volume'))}</span><input type="range" id="vol" class="set-vol" min="0" max="1" step="0.05" value="${settings.volume}" aria-label="${esc(t('volume'))}"><button class="btn btn-sm ${settings.muted?'off':''}" data-act="toggle-mute" title="${esc(settings.muted?t('unmute'):t('mute'))}" aria-pressed="${settings.muted?'true':'false'}">${settings.muted?'🔇':'🔊'}</button></div>
+      <div class="set-row"><span class="set-name">${esc(t('progress'))}</span>
+        <button class="btn btn-sm" data-act="import" title="${esc(t('importProgress'))}" aria-label="${esc(t('importProgress'))}">📥</button>
+        <button class="btn btn-sm" data-act="export" title="${esc(t('exportProgress'))}" aria-label="${esc(t('exportProgress'))}">📤</button>
+        <button class="btn btn-sm btn-danger" data-act="reset-progress" title="${esc(t('resetProgress'))}" aria-label="${esc(t('resetProgress'))}">✕</button>
+      </div>
+      <input type="file" id="import-input" class="hidden" accept=".json,application/json">
+    </div>
+    <div class="home-col">
+      <div class="panel" style="margin-top:0">
+        <h3 class="panel-title">${esc(t('uploadTitle'))}</h3>
+        <div class="row upload-icons">
+          <button class="btn btn-ico" data-act="upload" title="${esc(t('uploadBtn'))}" aria-label="${esc(t('uploadBtn'))}">📄</button>
+          <button class="btn btn-ico" id="folder-btn" data-act="upload-folder" title="${esc(t('folderBtn'))}" aria-label="${esc(t('folderBtn'))}">📂</button>
+          <button class="btn btn-ico" id="zip-btn" data-act="upload-zip" title="${esc(t('zipBtn'))}" aria-label="${esc(t('zipBtn'))}">📦</button>
+        </div>
+        <div class="row" style="margin-top:10px">
+          <input type="url" id="url-input" placeholder="${esc(t('urlPlaceholder'))}" style="flex:1;min-width:180px">
+          <button class="btn btn-primary" data-act="add-url">${esc(t('addBtn'))}</button>
+        </div>
+        <input type="file" id="file-input" class="hidden" multiple accept=".md,.markdown,.txt,.zip,image/*,audio/*">
+        <input type="file" id="folder-input" class="hidden" webkitdirectory multiple>
+        <input type="file" id="zip-input" class="hidden" accept=".zip,application/zip,application/x-zip-compressed">
+      </div>
+      <div class="panel">
+        <h3 class="panel-title">${esc(t('mediaShort'))}</h3>
+        ${mediaLibPanelInner()}
+      </div>
+    </div>
+  </div>
+  <h2>${esc(t('myDecks'))}</h2>
+  ${deckMetas.length?`<div class="grid">${decks}</div>`:`<div class="panel muted">${esc(t('empty'))}</div>`}
+  ${demoMissing?`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="restore-demo">${esc(t('restoreDemo'))}</button></div>`:''}
+  ${deckMetas.length>1?`<div class="row" style="margin-top:14px"><button class="btn" data-act="open-setup" data-arg="all">${esc(t('trainAll'))}</button></div>`:''}
+  ${logPanelHtml()}`;
+}
+// панель «Медиа»: статус, счётчики, источники (cohort — папки и архивы) и очистка
+function mediaLibPanelInner(){
+  const n=mediaLib.audio+mediaLib.image;
+  if(!n) return `<p class="muted" style="font-size:.82rem;margin:0">${esc(t('mediaNone'))}</p>`;
+  const stat=mediaLib.audio+' '+t('mediaAudio')+' · '+mediaLib.image+' '+imgWord(mediaLib.image);
+  const cohorts=[...new Set(mediaLib.items.map(it=>it.cohort).filter(Boolean))];
+  const chips=cohorts.length?`<div class="row" style="gap:.4rem;margin:.5rem 0 0">${cohorts.map(c=>`<span class="chip on" title="${esc(c)}">${esc(c.length>26?c.slice(0,25)+'…':c)}</span>`).join('')}</div>`:'';
+  return `<p style="margin:0">✔ <b>${esc(t('mediaLoaded'))}</b> — ${esc(stat)}</p>${chips}
+    <p class="muted" style="font-size:.82rem;margin:.4rem 0 .7rem">${esc(t('mediaUntilReload'))}</p>
+    <div class="row"><button class="btn" data-act="clear-media">${esc(t('mediaClear'))}</button></div>`;
+}
+function chipHtml(kind, val, on, label, off){
+  if(off) return `<span class="chip off" title="${esc(t('dirNote'))}">${esc(label)}</span>`;
+  return `<span class="chip ${on?'on':''}" data-act="setup-set" data-kind="${kind}" data-arg="${esc(val)}">${esc(label)}</span>`;
+}
+// какие направления есть у колоды в выбранном режиме: нужны, чтобы настройка
+// сессии показывала доступные варианты и не обещала реверс там, где он
+// отключён шапкой или карточкой. Задания без direction идут в одну сторону,
+// если в колоде не включён реверс (reverse/поворот в шапке)
+function deckDirCaps(d, mode){
+  const caps={l1l2:false, l2l1:false, anyNoRev:false};
+  for(const c of d.cards){
+    if(mode==='cards' && c.type!=='card') continue;
+    if(mode==='tasks' && c.type!=='task') continue;
+    if(c.type==='card'){
+      const rev=(c.reverse!==undefined)?c.reverse:d.reverse;
+      if(rev) caps.l1l2=caps.l2l1=true;
+      else { caps.l2l1=true; caps.anyNoRev=true; }
+    } else {
+      const dir=c.direction||(d.reverse?'both':'l1l2');
+      if(dir==='both') caps.l1l2=caps.l2l1=true;
+      else caps[dir==='l2l1'?'l2l1':'l1l2']=true;
+    }
+  }
+  return caps;
+}
+function deckLangsHtml(m){
+  const d=getDeck(m);
+  if(!d) return '';
+  if(d.grammar) return `${esc(d.lang)} — ${esc(t('grammarLabel'))}`;
+  if(d.lang && d.base) return `${esc(t('langBase'))} ${esc(d.base)} · ${esc(t('langTarget'))} ${esc(d.lang)}`;
+  return '';
+}
+function setupModalHtml(){
+  const p=pendingSetup;
+  const decks=p.ids.map(id=>deckMetas.find(m=>m.id===id)).filter(Boolean);
+  const tags=[...new Set(decks.flatMap(m=>{ const d=getDeck(m); return d?d.cards.flatMap(c=>c.tags||[]):[]; }))].sort();
+  // языки колод: что заявлено в шапках (lang/base) — «Базовый: ru · Изучаемый: en»
+  const langs=decks.map(deckLangsHtml).filter(Boolean);
+  // доступные направления по всем выбранным колодам в выбранном режиме;
+  // недоступные чипы притушены
+  const caps=decks.reduce((a,m)=>{
+    const d=getDeck(m); if(!d) return a;
+    const c=deckDirCaps(d, p.mode);
+    a.l1l2=a.l1l2||c.l1l2; a.l2l1=a.l2l1||c.l2l1; a.anyNoRev=a.anyNoRev||c.anyNoRev;
+    return a;
+  }, {l1l2:false, l2l1:false, anyNoRev:false});
+  // «Смешанно» больше нет: направление всегда конкретное; если у выбранных колод
+  // в этом режиме направлений нет вовсе — строка направления скрыта (фильтра нет)
+  if(!caps.l1l2 && !caps.l2l1) p.direction='mixed';
+  else{
+    if(p.direction==='mixed') p.direction = caps.l1l2 ? 'l1l2' : 'l2l1';
+    if(!caps.l1l2 && p.direction==='l1l2') p.direction='l2l1';
+    if(!caps.l2l1 && p.direction==='l2l1') p.direction='l1l2';
+  }
+  const dirHidden=!caps.l1l2 && !caps.l2l1;
+  return `<div class="overlay" data-act="overlay-close"><div class="modal">
+   <h3 style="margin-top:0">${esc(t('setupTitle'))}</h3>
+   ${langs.length?`<p class="muted" style="margin:0 0 .6rem;font-size:.85rem">${esc(t('langsLine'))}: ${langs.join(' · ')}</p>`:''}
+   <label class="fld">${esc(t('mode'))}</label>
+   <div class="chips">
+     ${chipHtml('mode','cards',p.mode==='cards',t('modeCards'))}
+     ${chipHtml('mode','tasks',p.mode==='tasks',t('modeTasks'))}
+   </div>
+   ${dirHidden
+     ? `<p class="muted" style="margin:.7rem 0 0;font-size:.85rem">${esc(t('dirNote'))}</p>`
+     : `<label class="fld">${esc(t('direction'))}</label>
+   <div class="chips">
+     ${chipHtml('dir','l1l2',p.direction==='l1l2',t('dirL1L2'),!caps.l1l2)}
+     ${chipHtml('dir','l2l1',p.direction==='l2l1',t('dirL2L1'),!caps.l2l1)}
+   </div>
+   ${caps.anyNoRev?`<p class="muted" style="margin:.45rem 0 0;font-size:.8rem">${esc(t('dirNote'))}</p>`:''}`}
+   ${tags.length?`<label class="fld">${esc(t('tagsFilter'))}</label><div class="chips">${tags.map(tg=>`<span class="chip ${p.tags.includes(tg)?'on':''}" data-act="tag" data-arg="${esc(tg)}">${esc(tg)}</span>`).join('')}</div>`:''}
+   <label class="row" style="margin-top:14px;cursor:pointer;gap:.5rem"><input type="checkbox" data-act="onlymistakes" ${p.onlyMistakes?'checked':''}> ${esc(t('onlyMistakes'))}</label>
+   <label class="fld">${esc(t('size'))}</label>
+   <input type="number" id="size-input" min="1" value="${p.size||''}" placeholder="∞">
+   <div class="row" style="margin-top:16px">
+     <button class="btn btn-primary" data-act="setup-start" style="flex:1;justify-content:center">${esc(t('start'))}</button>
+     <button class="btn" data-act="setup-cancel">${esc(t('cancel'))}</button>
+   </div>
+  </div></div>`;
+}
+function rich(text, ex){
+  const res=resolverFor(ex.deck.metaId);
+  let s=esc(text);
+  s=s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, (m,alt,src)=>`<img class="card-img" src="${esc(res(src.trim()))}" alt="${esc(alt)}" loading="lazy">`);
+  s=s.replace(/\*\*([^*\n]+)\*\*/g,'<b>$1</b>');
+  s=s.replace(/\n/g,'<br>');
+  return s;
+}
+function audioRowHtml(ex, side){
+  const s=side||'1';
+  const list=audioListFor(ex, s);
+  const canTts=!list.length && ttsAvailable() && speechText(textOfSide(ex, s));
+  if(!list.length && !canTts) return '';
+  const buttons=list.map((u,i)=>`<button class="btn btn-sm" data-act="play" data-arg="${s}:${i}" title="${esc(u)}">🔊 ${esc(t('audio'))}${list.length>1?' '+(i+1):''}</button>`).join('');
+  const speakBtn=canTts?`<button class="btn btn-sm" data-act="speak" data-arg="${s}" title="${esc(t('ttsOn'))}">🔊 ${esc(t('audio'))}</button>`:'';
+  return `<div class="audio-row">${buttons}${speakBtn}</div>`;
+}
+function fontScaleSel(){
+  const opts=[[0.85,'85%'],[1,'100%'],[1.15,'115%'],[1.3,'130%'],[1.5,'150%']];
+  return `<select class="sel sel-inline" id="fontScale" title="${esc(t('fontSize'))}" aria-label="${esc(t('fontSize'))}">${opts.map(([v,l])=>`<option value="${v}" ${settings.fontScale===v?'selected':''}>${l}</option>`).join('')}</select>`;
+}
+// четыре комфортных размера картинок: применяются ко всем картинкам сайта
+// (карточки, задания) через CSS-переменную --img-h
+function imgSizeSel(){
+  const opts=[['s',t('imgS')],['m',t('imgM')],['l',t('imgL')],['xl',t('imgXL')]];
+  const cur=settings.imgSize||'m';
+  return `<select class="sel sel-inline" id="imgSize" title="${esc(t('imgSize'))}" aria-label="${esc(t('imgSize'))}">${opts.map(([v,l])=>`<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}</select>`;
+}
+function applyImgSize(){
+  const H={s:'96px', m:'160px', l:'240px', xl:'320px'}[settings.imgSize]||'160px';
+  document.documentElement.style.setProperty('--img-h', H);
+}
+function gradeRowHtml(){
+  return `<div class="grade">
+    <button class="btn g-ok grade-mark" data-act="grade" data-arg="ok" title="${esc(t('knew'))} (1)" aria-label="${esc(t('knew'))}">✓</button>
+    <button class="btn g-bad grade-mark" data-act="grade" data-arg="bad" title="${esc(t('missed'))} (2)" aria-label="${esc(t('missed'))}">✗</button>
+  </div>`;
+}
+function cardStageHtml(ex, a, b){
+  const flipped=S.flipped;
+  // варианты принадлежат своему столбцу: столбец 1 → alt1, столбец 2 → alts;
+  // какой столбец на экране — считает faceTyped (направление идёт за языками)
+  const ft=faceTyped(ex);
+  const face1=(flipped?ft.typed:ft.face)==='1';
+  const variants=((face1?ex.card.alt1:ex.card.alts)||[]);
+  const hintBtn=(!flipped && ex.card.hint)
+    ? `<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="hint">${esc(t('hint'))}</button></div>`:'';
+  const hintLine=(S.showHint && ex.card.hint)
+    ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
+  return `<div class="stage">
+    <div class="tapholder ${S.flipAnim?('flip-'+S.flipAnim):''}" data-act="flip-card">
+      <div class="side-label">${flipped?esc(t('sideB')):esc(t('sideA'))}</div>
+      <div>${rich(flipped?b:a, ex)}</div>
+      ${variants.length?`<div class="alts">${esc(t('variants'))} ${esc(variants.join('; '))}</div>`:''}
+      ${!flipped?`<div class="flip-hint">${esc(t('tapToFlip'))}</div>`:''}
+    </div>
+    ${!canFlipDir(ex)?`<div class="dir-note">🔒 ${esc(t('oneDir'))}</div>`:''}
+    ${audioRowHtml(ex, currentFaceSide(ex))}
+    ${hintBtn}${hintLine}
+    ${flipped?gradeRowHtml():''}
+  </div>`;
+}
+function taskStageHtml(ex, a, b){
+  const revealed=S.revealed;
+  const at=ex.card.audioTask;
+  const it=ex.card.imgTask;
+  const canFlip=canFlipDir(ex);
+  let after='';
+  if(revealed){
+    // варианты вводимой стороны: ru→en (l1l2) — alt2 (alts), en→ru (l2l1) — alt1
+    const alts=((ex.dir==='l1l2'?ex.card.alts:ex.card.alt1)||[]);
+    const exact=isExact(b, S.typed, alts);
+    const diff=diffTokens(b, S.typed).map(x=>`<span class="${x.ok?'diff-ok':'diff-no'}">${esc(x.t)}</span>`).join(' ');
+    after=`<div class="answer-box">
+        <div class="side-label" style="margin-bottom:.3rem">${esc(t('answer'))}</div>${diff}
+        ${alts.length?`<div class="alts">${esc(t('alsoCorrect'))} ${esc(alts.join('; '))}</div>`:''}
+        ${exact?`<div class="alts" style="color:var(--ok)">✓ ${esc(t('exact'))}</div>`:''}
+      </div>
+      <div class="typed-echo">${esc(t('yourAnswer'))} ${esc(S.typed||'—')}</div>
+      ${gradeRowHtml()}`;
+  }
+  const maskLine=(!revealed && S.revealedLetters.size)
+    ? `<div class="hintline">${esc(buildMask(b, S.revealedLetters))}</div>`:'';
+  const hintText=(!revealed && ex.card.hint)
+    ? `<div class="hinttext">${esc(t('hintField'))} ${esc(ex.card.hint)}</div>`:'';
+  const promptInner=at
+    ? `<div class="audio-big">🎧</div><div class="muted" style="margin-top:8px">${esc(t('listenPrompt'))}</div>`
+    : rich(a, ex);
+  return `<div class="stage">
+    <div class="tapholder small"><div class="side-label">${esc(at?t('audio'):(it?t('imgTask'):t('prompt')))}</div><div>${promptInner}</div>${it?`<div class="muted" style="margin-top:8px">${esc(t('imgTaskHint'))}</div>`:''}</div>
+    ${audioRowHtml(ex, initialFaceSide(ex))}
+    ${!revealed?`
+      <div style="margin-top:14px"><input type="text" id="typed" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="${esc(t('typeHere'))}" value="${esc(S.typed||'')}"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="btn btn-primary" data-act="reveal">${esc(t('showAnswer'))}</button>
+        <button class="btn" data-act="hint">${esc(t('hint'))}</button>
+        ${canFlip?`<button class="btn" data-act="flip-dir" title="${esc(t('flipDir'))}">⇄</button>`:''}
+      </div>
+      ${maskLine}${hintText}
+    `:(canFlip?`<div class="row" style="margin-top:10px"><button class="btn btn-sm" data-act="flip-dir">⇄ ${esc(t('flipDir'))}</button></div>`:'')}
+    ${after}
+    ${revealed?audioRowHtml(ex, currentFaceSide(ex)):''}
+  </div>`;
+}
+function sessionView(){
+  if(!S) return homeView();
+  if(S.done) return summaryView();
+  const ex=cur();
+  const s=sides(ex);
+  const total=S.exs.length;
+  const pct=Math.round((S.i/total)*100);
+  const stage=ex.card.type==='card' ? cardStageHtml(ex,s.a,s.b) : taskStageHtml(ex,s.a,s.b);
+  return `
+  <div class="sess-top">
+    <button class="btn btn-sm" data-act="exit">${esc(t('exit'))}</button>
+    <span class="muted sess-title" style="flex:1;text-align:center;word-break:break-word">${esc(ex.deck.title)}</span>
+    ${fontScaleSel()}
+    ${imgSizeSel()}
+    <input type="range" id="vol" class="sess-vol" min="0" max="1" step="0.05" value="${settings.volume}" title="${esc(t('volume'))}" aria-label="${esc(t('volume'))}">
+    <button class="btn btn-sm ${settings.tts?'':'off'}" data-act="toggle-tts" title="${esc(settings.tts?t('ttsOn'):t('ttsOff'))}" aria-pressed="${settings.tts?'true':'false'}">🗣</button>
+    <button class="btn btn-sm ${settings.muted?'off':''}" data-act="toggle-mute" title="${esc(settings.muted?t('unmute'):t('mute'))}" aria-pressed="${settings.muted?'true':'false'}">${settings.muted?'🔇':'🔊'}</button>
+    <span class="muted" style="white-space:nowrap">${S.i+1} / ${total}</span>
+  </div>
+  <div class="bar"><i style="width:${pct}%"></i></div>
+  ${stage}
+  <div class="keys">${esc(t('keysHint'))}</div>`;
+}
+function summaryView(){
+  return `<div class="panel" style="text-align:center;margin-top:40px;padding:28px">
+    <h2 style="margin-top:0">${esc(t('done'))}</h2>
+    <p style="font-size:1.08rem"><b>✓ ${S.ok}</b> · <b>✗ ${S.bad}</b> · ${esc(t('doneHints'))}: <b>${S.hintsTotal}</b></p>
+    <div class="row" style="justify-content:center;margin-top:16px">
+      <button class="btn btn-primary" data-act="repeat-mistakes">${esc(t('repeatMistakes'))}</button>
+      <button class="btn" data-act="exit">${esc(t('toHome'))}</button>
+    </div>
+  </div>`;
+}
+
+/* ============================ instruction ============================ */
+function codebox(code){
+  return `<div class="codebox"><button class="btn btn-sm copy" data-act="copy">${esc(t('copy'))}</button><pre>${esc(code)}</pre></div>`;
+}
+function instrSections(){
+  if(LANG==='en') return instrSectionsEn();
+  return [
+  {id:'start', title:'Быстрый старт', html:`
+    <p>Три шага: создайте текстовый файл колоды → загрузите его на сайт (кнопка «Выбрать файлы») или добавьте ссылкой на GitHub → нажмите «Тренировать». Вот готовый шаблон, который можно скопировать и заменить своим материалом:</p>
+    ${codebox(DEMO_DECK)}
+    <p>Файл сохраняйте в кодировке UTF-8, расширение — <b>.md</b> или <b>.txt</b> (табличный, см. ниже).</p>`},
+  {id:'format', title:'Формат базы', html:`
+    <h3>Шапка колоды</h3>
+    <p>Необязательный YAML-блок в начале файла задаёт название и языки: <b>lang</b> — изучаемый язык, <b>base</b> — родной (язык переводов). Если lang и base совпадают (например, оба en) — колода грамматическая: реверс в ней выключается сам. Реверс включается полем <b>reverse</b> — по-английски <code>reverse: true</code>, по-русски <code>поворот: разрешен</code>; <code>reverse: false</code> / <code>поворот: запрещен</code> запрещает реверс всей колоде — и карточки, и задания идут в одном направлении.</p>
+    ${codebox(['---','title: Английский A1 — Урок 1','lang: en        # изучаемый язык','base: ru        # язык переводов; совпадёт с lang — грамматика, без реверса','reverse: true   # или «поворот: разрешен» — обе стороны; false/запрещен — одна','description: Описание для себя','---',''].join('\n'))}
+    <h3>Один стиль записи</h3>
+    <p>Запись — одна строка, поля через <b> | </b>: сторона 1, сторона 2, затем необязательные подсказка и теги. Точка с запятой в первых двух полях перечисляет <b>варианты</b> — первое значение основное, остальные тоже засчитываются; отдельных полей alt1/alt2 не нужно. Литеральные « | » и «;» экранируйте: <code>\\|</code> и <code>\\;</code>. Блочной формы нет — весь файл пишется одинаково.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | говорится при прощании | приветствия','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | неформальное приветствие | приветствия','Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana','tags: знакомство',''].join('\n'))}
+    <p>В задании варианты относятся к своей стороне: вводите сторону 2 — засчитываются её текст и варианты; нажали ⇄ и вводите сторону 1 — её текст и варианты. На карточках варианты показаны строкой «Варианты: …», в заданиях после показа ответа — «Тоже верно: …».</p>
+    <h3>Секции</h3>
+    <p>Заголовок секции определяет, что такое записи под ним; имена — по-русски или по-английски, в любом регистре: <b># Карточки / # Карты / # Card / # Cards</b> — флеш-карты; <b># Задания / # Задание / # Task / # Tasks</b> — задания с вводом ответа; <b># Аудио / # Произношение / # Audio / # Speech</b> — задания на слух (см. «Аудио»). Строки <b>---</b> и пустые строки — визуальные разделители, обычные заголовки (например, названия уроков) разбору не мешают. Если заголовков нет вовсе: строка из двух полей — флеш-карта, из трёх и более — задание.</p>
+    <h3>Модификаторы под записью</h3>
+    <p>Необязательные поля дописываются строкой-ключом под записью и прикрепляются к ближайшей записи выше: <b>audio:</b>, <b>audio2:</b>, <b>hint:</b>, <b>tags:</b>, <b>id:</b>, <b>direction:</b>, <b>reverse:</b> (по-русски — <b>поворот:</b>). Ключи front:, back:, prompt:, answer:, alt1:, alt2: больше не используются — варианты пишутся через «;».</p>
+    ${codebox(['# Карточки','Good morning, how are you? | Добрый день, как дела?','hint: формальное приветствие','audio: audio/good-morning.mp3','tags: приветствия',''].join('\n'))}
+    <p>Заголовок уровня <b>## и глубже</b> внутри секции — это тег для всех записей ниже, до следующего заголовка: <code>## Повседневность</code> пометит все записи под ним. Теги перечисляются через запятую (<code>## Еда, напитки</code> — два тега), а собственные <b>tags:</b> записи добавляются к тегу подзаголовка. Заголовок секции (<code># Задания</code>) и одиночный <code>#</code> тегом не становятся.</p>
+    ${codebox(['# Задания','## Повседневность','Налей мне чай. | Pour me some tea.','Положи сахар. | Put some sugar in.','','## Путешествия','Где мой чемодан? | Where is my suitcase?','tags: аэропорт',''].join('\n'))}
+    <h3>Поля-модификаторы</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Поле</th><th>Где</th><th>Что делает</th></tr>
+      <tr><td>hint</td><td>обе</td><td>текст подсказки (кнопка «Подсказка»)</td></tr>
+      <tr><td>audio / audio1</td><td>обе</td><td>озвучка стороны 1 (фронт/prompt); путь или ссылка на mp3/ogg/m4a/wav; несколько полей — плейлист. Нет строки — сайт ищет файл сам: по нумерации или имени (раздел «Аудио»), затем синтез речи</td></tr>
+      <tr><td>audio2</td><td>обе</td><td>озвучка стороны 2 (оборот/answer); те же правила автопоиска</td></tr>
+      <tr><td>tags</td><td>обе</td><td>теги через запятую — фильтр при старте сессии; подзаголовок «## Тег» внутри секции помечает все записи ниже</td></tr>
+      <tr><td>id</td><td>обе</td><td>стабильный идентификатор: прогресс не собьётся при правке текста карточки</td></tr>
+      <tr><td>reverse / поворот</td><td>карточка</td><td>true / false (разрешен / запрещен) — разрешить или запретить реверс этой карточки (по умолчанию — из шапки колоды); false запрещает реверс даже при reverse: true в шапке — карточка тренируется в одном направлении, ⇄ и F у неё не работают</td></tr>
+      <tr><td>direction</td><td>задание</td><td>l1l2 / l2l1 / both — зафиксировать направление (кнопка ⇄ скрыта)</td></tr>
+    </table></div>
+    <h3>Направление изучения и реверс</h3>
+    <p>Сайт определяет, где изучаемый язык, а где базовый, по шапке: <b>lang</b> — изучаемый, <b>base</b> — базовый. В настройке сессии языки колод показаны строкой («Базовый: ru · Изучаемый: en»), направление выбирается из двух вариантов — <b>«Базовый → Изучаемый»</b> и <b>«Изучаемый → Базовый»</b> — и всегда показывает нужную сторону, какой столбец она ни занимала бы: если в файле русский слева, а английский справа, «Базовый → Изучаемый» всё равно покажет русскую сторону. Сторона языка распознаётся и внутри колоды: карточки можно писать в любом порядке столбцов.</p>
+    <p>Реверс управляется шапкой: <b>reverse: true</b> (или «поворот: разрешен») разрешает обе стороны — карточки и задания можно переворачивать кнопкой ⇄ и клавишей F, в сессию попадают оба направления. <b>reverse: false</b> («поворот: запрещен») выключает реверс всей колоде: карточки идут «видно изучаемый → вспомнить базовый», задания — «видно базовый → вписать изучаемый», кнопки ⇄ у них нет; у такой карточки в сессии видна пометка «Реверс отключён — доступен только один вариант». У отдельной карточки reverse: false запрещает реверс ей даже при reverse: true в шапке. Если <b>lang и base совпадают</b> (например, оба en) — колода грамматическая: реверс выключается сам, задания идут «вопрос → ответ».</p>
+    <h3>Задание с картинкой</h3>
+    <p>В секции «# Задания» картинка может быть вопросом: запись <code>![](img/dog.jpg) | Dog</code> показывает картинку и поле ввода — вписать, что изображено. У такого задания направление одно (картинка всегда вопросом), кнопки ⇄ нет, подсказка открывает буквы ответа. Если картинка случайно попала в поле ответа, стороны меняются местами автоматически, а в журнале появляется предупреждение.</p>
+    ${codebox(['# Задания','![](img/dog.jpg) | Dog ; Puppy','','![](img/cat.jpg) | Cat','hint: домашнее животное',''].join('\n'))}
+    <h3>Правила разбора</h3>
+    <p>• Запись — одна строка с « | » (или Tab): 2 поля — основа, 3-е — подсказка, 4-е — теги.<br>• Модификаторы (audio, audio1, audio2, hint, tags, id, direction, reverse) — строки-ключи без « | », прикрепляются к ближайшей записи выше.<br>• «;» разделяет варианты (первое значение — основное); литеральные «;» и « | » экранируйте: <code>\\;</code>, <code>\\|</code>.<br>• Записи нумеруются для автосвязки медиа: карточки отдельно с 01, задания отдельно с 01, аудиозадания отдельно; строки-модификаторы не считаются.<br>• Строки, которые не удалось разобрать, не ломают файл — они попадают в предупреждения на плитке колоды.<br>• Прогресс привязан к тексту карточки: если переписали её текст и хотите сохранить прогресс — добавьте поле <b>id</b>.</p>`},
+  {id:'txt', title:'Файлы .txt (таблица)', html:`
+    <p>Для массового ввода удобнее TSV: колонки через Tab, строки с <b>#</b> — комментарии. Две колонки — флеш-карта, три колонки (вопрос, ответ, теги) — задание. Такую таблицу легко получить копированием из Excel или Google Sheets.</p>
+    ${codebox('# комментарий\nhello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tприветствия\n')}`},
+  {id:'images', title:'Картинки', html:`
+    <p>Картинка вставляется маркдаун-разметкой в любое поле. Три способа:</p>
+    ${codebox(['![](img/dog.jpg)                    → файл рядом с колодой в репозитории','![](https://site.com/photo.jpg)   → внешняя ссылка','![](data:image/png;base64,…)      → картинка, вшитая в файл',''].join('\n'))}
+    <p>При загрузке по ссылке относительный путь вычисляется от адреса файла колоды (raw.githubusercontent.com отдаёт и файлы, и картинки). При загрузке с устройства нажмите «Выбрать папку» или «Загрузить архив» (.zip): сайт предзагружает все картинки сразу в общую медиа-библиотеку и связывает их по относительному пути, а если точного совпадения нет — по имени файла. Автоподбора «по номеру» у картинок нет, в отличие от аудио: привязка идёт только от явной ссылки в тексте карточки. Библиотека действует до перезагрузки страницы и обслуживает все колоды, включая колоды по ссылке: колода может лежать на GitHub, а картинки — на вашем диске. Картинки, которых нет в библиотеке, не ломают карточку — на их месте появляется тихая пометка «картинка недоступна».</p>
+    <p>Размер картинок на карточках и в заданиях настраивается: в «Настройках» на главной и рядом с размером шрифта в сессии есть «Размер картинок» — четыре варианта: <b>маленькие</b> (96 px), <b>средние</b> (160 px, по умолчанию), <b>крупные</b> (240 px) и <b>очень крупные</b> (320 px) по высоте. Пропорции сохраняются, поэтому огромные фото не ломают вид; выбор запоминается. Подходят png, jpg, webp, gif (в том числе анимированный), svg и bmp; <b>webm</b> — это видео, а не картинка: если нужна анимация, берите gif.</p>`},
+  {id:'audio', title:'Аудио', html:`
+    <p><b>audio</b> (полное имя <b>audio1</b>) — озвучка стороны 1: фронт карточки или prompt задания. <b>audio2</b> — озвучка стороны 2: оборот карточки или ответ. При показе стороны звук проигрывается <b>один раз</b> автоматически; повторить — клавиша <b>P</b> или кнопка 🔊 под карточкой. Несколько полей audio — плейлист, кнопки идут по порядку. Пишется модификатором под записью:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','audio2: audio/Привет_Здравствуйте.mp3','','![](img/dog.jpg) | Собака','audio2: audio/Собака.mp3',''].join('\n'))}
+    <h3>Порядок поиска звука</h3>
+    <p>Для каждой стороны карточки или задания сайт ищет звук в этом порядке — первый найденный шаг и работает:</p>
+    <p>1. <b>Строки audio: / audio1: / audio2:</b> — ручное указание, главный источник; путь ищется по папке, при промахе — по имени файла.<br>2. <b>Нумерованный файл</b> вида <code>01_Hello_Hi.mp3</code> — номер находит карточку, текст в имени решает, чья это сторона.<br>3. <b>Файл только с номером</b> <code>01.mp3</code> — общая озвучка карточки, играет на обеих сторонах.<br>4. <b>Файл по имени</b>: <code>Hello_Hi.mp3</code> для карточки «Hello ; Hi» (тексты до 6 слов).<br>5. <b>Синтез речи браузера</b> — если включён (см. ниже) и файла нет.</p>
+    <h3>Нумерация файлов: аудио почти без строк в файле</h3>
+    <p>Записи в файле пронумерованы сами собой: <b>карточки считаются с 01 отдельно, задания — отдельно</b>, аудиозадания секции # Аудио — тоже отдельно. Строки-модификаторы (hint:, tags:, audio:…) не считаются — только записи. Назовите файл <code>01_текст_стороны.mp3</code> — он прикрепится сам:</p>
+    ${codebox(['# Карточки','Hello ; Hi ; Hey ; wassup | Здравствуйте ; Привет ; Хай ; Дарова','','01_Hello_Hi_Hey_wassup.mp3             → сторона с английским (номер 01 + текст совпал)','01_Здравствуйте_Привет_Хай_Дарова.mp3 → сторона с русским','01.mp3                                → общая озвучка карточки №01 — играет на обеих сторонах',''].join('\n'))}
+    <p>• <b>Номер</b> — цифры до первого подчёркивания: 01, 02, 03… (после 99 — просто 100; <code>1</code> и <code>01</code> равнозначны).<br>• <b>Текст после номера</b> решает, чья это сторона: совпал с английским текстом — озвучка английской стороны, с русским — русской. Поэтому карточки можно писать в любом порядке — <code>English | Русский</code> или <code>Русский | English</code>: привязка идёт к тексту, а не к позиции.<br>• <b>Регистр, подчёркивания и пунктуация не важны</b>: <code>How_are_you</code> найдётся для «How are you?», <code>hello_hi</code> — для «Hello ; Hi». Варианты через «;» тоже участвуют в сравнении.<br>• <b>Апострофы не мешают</b>: для «I'll be back soon.» подойдёт <code>11_Ill_be_back_soon.mp3</code>, для «don't» — <code>…dont…</code>: при сравнении апостроф опускается, как и вся пунктуация.<br>• <b>Сокращённое имя</b> — достаточно начала текста: <code>01_Hello.mp3</code> подойдёт для «Hello ; Hi ; Hey».<br>• Файлы, не нашедшие пару, и записи без файла подробно перечисляются в <b>журнале</b> — с подсказкой, чья это запись и как переименовать файл; номер, занятый другим файлом, молча не подменяется.<br>• У <b>заданий</b> счёт свой: <code>01_Привет_как_дела.mp3</code> — озвучка задания №1. Файл без текста прикрепляется к карточке, поэтому для заданий дописывайте текст в имя.</p>
+    <h3>Связка по имени без номера</h3>
+    <p>Короткие записи (до 6 слов) находят файл и без номера: карточка «Goodbye ; Bye | Пока ; До свидания» подхватит <code>Goodbye_Bye.mp3</code> и <code>Пока_До_свидания.mp3</code> сама. Длинным предложениям имена из полного текста не нужны — для них нумерация или строки audio:.</p>
+    <h3>Секция # Аудио — задания на слух</h3>
+    <p>Отдельная секция для заданий «услышь и введи». Запись начинается с <b>audio:</b> или <b>audio2:</b>, после « | » — текст ответа (тоже с вариантами через «;»):</p>
+    ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
+    <p>Первая строка: звучит английская озвучка — вводите русский перевод; вторая: звучит русская — вводите английский. Ключ audio:/audio2: лишь помечает, чья это озвучка; задание всегда показывается как 🔊 с полем ввода. Подсказка и теги — как обычно: модификаторами под записью или 3-м и 4-м полями. Направление у аудиозаданий зафиксировано, кнопки ⇄ нет.</p>
+    <h3>Как подключить аудио: папка или ZIP</h3>
+    <p>Выкладывать mp3 в репозиторий не нужно. Нажмите «Выбрать папку» и укажите папку с колодой и аудио, или загрузите то же содержимое в .zip. Все файлы предзагружаются в медиа-библиотеку: строки audio: ищутся по пути, при промахе — по имени файла (префикс папки не важен: <code>audio/hello.mp3</code> найдётся и как <code>hello.mp3</code>); нумерованные и короткие имена сопоставляются автоматически, как описано выше. Кириллица в именах файлов работает и в папке, и внутри ZIP: кодировка архива определяется сама (UTF-8, cp1251, cp866, koi8-r), имена из старых виндовых архивов читаются правильно. В тосте после загрузки архива показаны первые имена файлов — кодировку видно сразу, а не по звуку. Файлы, которых нет среди подключённых, помечаются тихо — тост «Аудио недоступно: путь» показывается один раз.</p>
+    <h3>Синтез речи, громкость, выключение звука</h3>
+    <p>Если у стороны нет своего аудио, текст может прочитать <b>встроенный синтез речи браузера</b> — бесплатно и без единого файла, удобно для предложений, которые лень озвучивать вручную. Язык голоса определяется по алфавиту читаемого текста: кириллица — русский голос, латиница — язык этой стороны из шапки (заполните lang и base, если текст латиницей, но не английский — например, французский), а если шапки нет — английский. Синтез включается кнопкой 🗣 — она есть на главной в «Настройках» и в сессии рядом с размером шрифта; состояние общее и запоминается. Рядом — <b>Громкость</b> (слайдер, запоминается; по умолчанию 70%) и кнопка 🔊/🔇 полного выключения звука: она глушит и файлы, и синтез. Кнопка 🔊 под карточкой при отсутствии файла тоже читает текст синтезом; клавиша P повторяет текущую сторону.</p>
+    <h3>Как сделать свои аудио</h3>
+    <p><b>edge-tts</b> — рекомендуемый способ: бесплатно, нейроголоса Microsoft, десятки языков. Установите Python, затем в терминале:</p>
+    ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media 01_Good_morning_how_are_you.mp3',''].join('\n'))}
+    <div class="tablewrap"><table>
+      <tr><th>Язык</th><th>Голоса</th></tr>
+      <tr><td>Английский</td><td>en-US-AriaNeural, en-GB-SoniaNeural, en-US-GuyNeural</td></tr>
+      <tr><td>Русский</td><td>ru-RU-SvetlanaNeural, ru-RU-DmitryNeural</td></tr>
+      <tr><td>Французский</td><td>fr-FR-DeniseNeural, fr-FR-HenriNeural</td></tr>
+      <tr><td>Немецкий</td><td>de-DE-KatjaNeural, de-DE-ConradNeural</td></tr>
+      <tr><td>Испанский</td><td>es-ES-ElviraNeural, es-MX-DaliaNeural</td></tr>
+    </table></div>
+    <p>Полный список голосов: команда <b>edge-tts --list-voices</b>. Альтернативы: <b>gTTS</b> (простые голоса Google, короткий Python-скрипт), <b>Piper</b> (локальный синтез без интернета), <b>Forvo</b> (живые записи носителей для отдельных слов), платные сервисы максимального качества (Azure TTS, ElevenLabs, OpenAI TTS) и обычная запись голоса на телефоне. Файлы удобно складывать в папку рядом с колодой; при локальной работе имена могут быть любыми — латиница без пробелов нужна только если планируете выкладывать файлы в репозиторий.</p>`},
+  {id:'loading', title:'Загрузка на сайт', html:`
+    <p><b>Рекомендованные</b> — колоды, вшитые в сайт автором. <b>Ссылка</b> — raw-адрес файла на GitHub: поле «Добавить» и кнопка стоят в той же панели «Загрузить файлы с устройства»; сайт скачивает файл и запоминает его в браузере, дальше он работает даже оффлайн, кнопка «Обновить» подтягивает правки. Относительные пути (картинки, audio:) считаются от адреса файла на GitHub — колоду можно выложить в репозиторий вместе с аудио и картинками без правки путей. <b>Файлы с устройства</b> — три кнопки: «Выбрать файлы» (колоды .md/.txt вместе с медиа рядом, или сразу .zip), «Выбрать папку» (целая папка — колоды и медиа найдутся сами), «Загрузить архив» (.zip: колоды внутри импортируются, аудио и картинки распаковываются в память). Всё медиа предзагружается в общую медиа-библиотеку — до перезагрузки страницы оно обслуживает все колоды, включая колоды по ссылке: тексты колод могут лежать на GitHub, а аудио и картинки — на вашем диске. Состояние библиотеки видно на главной в панели «Медиа» под кнопками загрузки; повторная загрузка той же папки или архива обновляет её содержимое, убирая переименованные и удалённые файлы; кнопка «Очистить» освобождает память. Тексты колод сохраняются в браузере (localStorage).</p>
+    <p>Чтобы выложить свои колоды на GitHub: создайте репозиторий, положите туда decks/urok1.md, откройте файл на github.com и нажмите Raw — этот адрес и добавляйте на сайт. Хранилище браузера — около 5 МБ, текстовых колод хватит на сотни уроков. Весь ваш прогресс можно перенести между компьютером и телефоном экспортом/импортом JSON-файла (раздел «Настройки»).</p>
+    <h3>Как связываются файлы при загрузке с устройства</h3>
+    <p>${esc(t('uploadHint'))}</p>`},
+  {id:'progress', title:'Прогресс', html:`
+    <p>По каждой карточке сайт помнит счётчики «знал / не знал», дату последнего показа и число подсказок. На плитке колоды видна сводка. В начале сессии можно выбрать «Повторить только ошибки» — тогда пойдут лишь карточки с ошибками. Кнопка сброса удаляет весь прогресс (осторожно: восстановить нельзя, заранее сделайте экспорт).</p>`},
+  {id:'keys', title:'Горячие клавиши', html:`
+    <div class="tablewrap"><table>
+      <tr><th>Клавиша</th><th>Действие</th></tr>
+      <tr><td>Пробел / Enter</td><td>перевернуть карточку или показать ответ</td></tr>
+      <tr><td>1</td><td>✓ — знал</td></tr>
+      <tr><td>2</td><td>✗ — не знал</td></tr>
+      <tr><td>H</td><td>Подсказка (в заданиях открывает случайные буквы)</td></tr>
+      <tr><td>P</td><td>Повторить аудио текущей стороны</td></tr>
+      <tr><td>F</td><td>Сменить направление задания (⇄)</td></tr>
+      <tr><td>Esc</td><td>Выйти из сессии</td></tr>
+    </table></div>
+    <p>Клавиши привязаны к физическим кнопкам клавиатуры и работают на любой раскладке: на русской раскладке те же клавиши делают то же самое. На телефоне карточка переворачивается тапом по всей её площади.</p>`},
+  {id:'faq', title:'Вопросы и ответы', html:`
+    <p><b>Почему у локальной колоды пропали картинки после перезагрузки?</b> Медиа живут до перезагрузки страницы; текст сохраняется. Нажмите «Выбрать папку» или «Загрузить архив» ещё раз — подключение занимает пару секунд.</p>
+    <p><b>Прогресс карточки сбросился после правки её текста.</b> Прогресс привязан к тексту — добавьте карточке поле id и меняйте текст свободно.</p>
+    <p><b>Ссылка не добавляется.</b> Файл должен быть публично доступен (публичный репозиторий GitHub) и существовать по адресу; проверьте ссылку в браузере.</p>
+    <p><b>Задание спрашивает не в ту сторону.</b> Направление определяется по шапке колоды: заполните lang (изучаемый) и base (базовый) — тогда «Базовый → Изучаемый» всегда показывает базовый язык, даже если столбцы в файле переставлены. В колодах без реверса (reverse: false / поворот: запрещен у карточки или в шапке, либо lang = base) кнопка ⇄ и клавиша F заблокированы — у карточки видна пометка «Реверс отключён». Включите reverse: true в шапке, чтобы направления стали доступны.</p>
+    <p><b>Аудио не играет само.</b> Браузеры разрешают звук только после первого взаимодействия со страницей — кликните или нажмите любую клавишу, дальше автопроигрывание будет работать на каждой карточке. Повтор текущей стороны — клавиша P.</p>
+    <p><b>«Аудио недоступно: audio/…».</b> Этого файла нет среди подключённого медиа и автосвязка не нашла пару. Нажмите «Выбрать папку» (папка с колодой и аудио целиком) или «Загрузите архив» (.zip). Либо переименуйте файлы в нумерованный вид <code>01_Hello_Hi.mp3</code> — сайт свяжет их сам; непарные файлы и записи без файла подробно перечисляет журнал. Для колоды по ссылке выкладывать mp3 в репозиторий не обязательно: подключите их локально, они подхватятся.</p>
+    <p><b>Какой ZIP подойдёт?</b> Обычный .zip от любого архиватора (методы «без сжатия» и deflate); вложенные папки поддерживаются. Кириллица в именах читается правильно: кодировка определяется автоматически (UTF-8 и виндовые cp1251/cp866/koi8-r), в тосте после загрузки видны первые имена файлов. Зашифрованные архивы не читаются. Колоды .md/.txt внутри архива добавляются сами, аудио и картинки попадают в медиа-библиотеку.</p>
+    <p><b>Синтез речи молчит или читает не тем языком.</b> Проверьте, что включён 🗣 (на главной или в сессии) и звук не выключен (🔇). Голос зависит от браузера: свежие Chrome и Edge умеют русский и английский лучше всего. Язык определяется по алфавиту читаемого текста, а для латиницы — из шапки колоды: заполните lang (изучаемый) и base (базовый), если синтез путает языки. Синтез — запаска: свой mp3 всегда звучит вместо него.</p>
+    <p><b>Внутри текста есть «;» или « | ».</b> «;» разделяет варианты, « | » — поля. Литеральные символы экранируйте: <code>\\;</code> и <code>\\|</code> — строка «Раз\\; два | Один» станет карточкой с текстом «Раз; два».</p>`}
+  ];
+}
+function instrSectionsEn(){
+  return [
+  {id:'start', title:'Quick start', html:`
+    <p>Three steps: create a deck text file → upload it (the "Choose files" button) or add a GitHub link → press "Train". Here is a full template you can copy and edit:</p>
+    ${codebox(DEMO_DECK)}
+    <p>Save files in UTF-8 as <b>.md</b> or <b>.txt</b> (table form, see below).</p>`},
+  {id:'format', title:'Deck format', html:`
+    <h3>Deck header</h3>
+    <p>An optional YAML block at the top sets the title and languages: <b>lang</b> is the target language, <b>base</b> is the native one (the translation language). If lang equals base (say, both en) the deck is a grammar deck: reverse switches itself off. Reverse is enabled with <b>reverse</b> — <code>reverse: true</code> in English or <code>поворот: разрешен</code> in Russian; <code>reverse: false</code> / <code>поворот: запрещен</code> disables reverse for the whole deck — cards and tasks go in one direction.</p>
+    ${codebox(['---','title: English A1 — Lesson 1','lang: en        # target language','base: ru        # translation language; same as lang — grammar deck, no reverse','reverse: true   # or "поворот: разрешен"; false/запрещен — one direction only','description: A note for yourself','---',''].join('\n'))}
+    <h3>One style of writing</h3>
+    <p>A record is one line with fields separated by <b> | </b>: side 1, side 2, then optional hint and tags. A semicolon in the first two fields lists <b>alternatives</b> — the first value is the main text, the rest are also accepted; no separate alt1/alt2 fields are needed. Escape literal " | " and ";" as <code>\\|</code> and <code>\\;</code>. There is no block form — the whole file is written the same way.</p>
+    ${codebox(['# Карточки','hello | привет','good morning | доброе утро; добрый день','See you tomorrow! | До завтра! | said when parting | greetings','','# Задания','Привет, как дела?; Здравствуйте, как ты? | Hello! How are you?; Hi! How are you? | informal greeting | greetings','Меня зовут Ана.; Моё имя — Ана | My name is Ana; I am Ana','tags: greetings',''].join('\n'))}
+    <p>Alternatives belong to their side: typing side 2 accepts its text and alternatives; press ⇄ to type side 1 — its text and alternatives are accepted. On flashcards alternatives are shown as "Variants: …", in tasks as "Also correct: …".</p>
+    <h3>Sections</h3>
+    <p>The section heading says what the records below are; names work in Russian or English, any case: <b># Карточки / # Карты / # Card / # Cards</b> — flashcards; <b># Задания / # Задание / # Task / # Tasks</b> — typing tasks; <b># Аудио / # Произношение / # Audio / # Speech</b> — listening tasks (see "Audio"). Lines of <b>---</b> and blank lines are optional visual separators; ordinary headings do not affect parsing. Without section headings: a two-field line is a flashcard, three or more fields make a task.</p>
+    <h3>Modifiers under a record</h3>
+    <p>Optional fields are written as key lines under a record and attach to the nearest record above: <b>audio:</b>, <b>audio2:</b>, <b>hint:</b>, <b>tags:</b>, <b>id:</b>, <b>direction:</b>, <b>reverse:</b> (in Russian decks — <b>поворот:</b>). The keys front:, back:, prompt:, answer:, alt1:, alt2: are no longer used — alternatives are written with ";".</p>
+    <p>A heading of level <b>## and deeper</b> inside a section is a tag for all records below it, until the next heading: <code>## Everyday</code> marks every record under it. Tags are comma-separated (<code>## Food, drinks</code> — two tags), and the record's own <b>tags:</b> lines add to the heading's tag. A section heading (<code># Tasks</code>) and a single <code>#</code> never become tags.</p>
+    ${codebox(['# Карточки','Good morning, how are you? | Добрый день, как дела?','hint: formal greeting','audio: audio/good-morning.mp3','tags: greetings',''].join('\n'))}
+    <h3>Modifier fields</h3>
+    <div class="tablewrap"><table>
+      <tr><th>Field</th><th>Applies to</th><th>Meaning</th></tr>
+      <tr><td>hint</td><td>both</td><td>hint text</td></tr>
+      <tr><td>audio / audio1</td><td>both</td><td>side-1 audio (front/prompt); path or URL (mp3/ogg/m4a/wav); repeat for a playlist. No line — the site searches by itself: numbering or name (see "Audio"), then speech synthesis</td></tr>
+      <tr><td>audio2</td><td>both</td><td>side-2 audio (back/answer); the same auto-matching rules</td></tr>
+      <tr><td>tags</td><td>both</td><td>comma-separated tags for session filters</td></tr>
+      <tr><td>id</td><td>both</td><td>stable id: keeps progress when text is edited</td></tr>
+      <tr><td>reverse / поворот</td><td>card</td><td>true / false (разрешен / запрещен) — allow or forbid reverse for this card (the default comes from the deck header); false forbids reverse even with reverse: true in the header — the card trains in one direction, ⇄ and F do not work on it</td></tr>
+      <tr><td>direction</td><td>task</td><td>l1l2 / l2l1 / both — fix the direction (⇄ hidden)</td></tr>
+    </table></div>
+    <h3>Study direction and reverse</h3>
+    <p>The site tells the target language from the native one by the deck header: <b>lang</b> is the target, <b>base</b> is the native. The session setup shows the deck languages on a line ("Base: ru · Target: en"), and the direction is one of two — <b>"Base → Target"</b> or <b>"Target → Base"</b> — always showing the right side, whichever column it occupies: if the file has Russian on the left and English on the right, "Base → Target" still shows the Russian side first. The side of a language is recognized inside the deck too — cards may be written with the columns in any order.</p>
+    <p>Reverse is controlled by the header: <b>reverse: true</b> ("поворот: разрешен") allows both directions — cards and tasks can be flipped with the ⇄ button and the F key, and both directions enter the session. <b>reverse: false</b> ("поворот: запрещен") turns reverse off for the whole deck: cards go "see the target → recall the native", tasks go "see the native → type the target", with no ⇄ button; such a card shows a "Reverse is off — one direction only" note. On a single card reverse: false forbids reverse even with reverse: true in the header. If <b>lang and base are the same</b> (both en, for example), the deck is a grammar deck: reverse switches itself off, tasks go prompt → answer.</p>
+    <h3>Task with a picture</h3>
+    <p>In the "# Tasks" section a picture can be the question: the record <code>![](img/dog.jpg) | Dog</code> shows the picture and an input field — type what is shown. Such a task has a single direction (the picture is always the question), no ⇄ button, and the hint reveals letters of the answer. If a picture accidentally lands in the answer field, the sides swap automatically and a warning appears in the log.</p>
+    ${codebox(['# Задания','![](img/dog.jpg) | Dog ; Puppy','','![](img/cat.jpg) | Cat','hint: a pet',''].join('\n'))}
+    <h3>Parsing rules</h3>
+    <p>• A record is a single line with " | " (or Tab): 2 fields are the sides, the 3rd is the hint, the 4th is tags.<br>• Modifiers (audio, audio1, audio2, hint, tags, id, direction, reverse) are key lines without " | " attaching to the nearest record above.<br>• ";" splits alternatives (first value is the main one); escape literal ";" and " | " as <code>\\;</code> and <code>\\|</code>.<br>• Records are numbered for media auto-matching: cards from 01 separately, tasks from 01 separately, listening tasks separately; modifier lines do not count.<br>• Lines that cannot be parsed do not break the file — they are reported as warnings on the deck tile.<br>• Progress is tied to card text — add an <b>id</b> field to keep it after edits.</p>`},
+  {id:'txt', title:'Plain .txt (TSV)', html:`
+    <p>For bulk entry use TSV: Tab-separated columns, lines starting with <b>#</b> are comments. Two columns make a flashcard, three columns (prompt, answer, tags) make a task. Paste straight from Excel or Google Sheets.</p>
+    ${codebox('hello\tпривет\ndog\tсобака\n\nПривет, как дела?\tHello! How are you?\tgreetings\n')}`},
+  {id:'images', title:'Images', html:`
+    <p>Images use markdown syntax in any field. Three ways:</p>
+    ${codebox(['![](img/dog.jpg)                    → file next to the deck in the repo','![](https://site.com/photo.jpg)   → external URL','![](data:image/png;base64,…)      → embedded image',''].join('\n'))}
+    <p>For link-based decks relative paths resolve against the deck file URL. For device uploads press "Choose folder" or "Load archive" (.zip): the site preloads every image into the shared media library and matches them by relative path first, then by file name. Unlike audio, images have no number-based matching: they attach only from an explicit link in the card text. The library lasts until the page is reloaded and serves every deck, link-based decks included: the deck can live on GitHub while images stay on your disk. Images missing from the library do not break the card — a quiet "image unavailable" mark takes their place.</p>
+    <p>The size of images on cards and tasks is adjustable: "Image size" in Settings on the home screen and next to the font size in a session offers four options — <b>small</b> (96 px), <b>medium</b> (160 px, the default), <b>large</b> (240 px) and <b>extra large</b> (320 px) of height. Proportions are kept, so huge photos do not break the layout; the choice is remembered. png, jpg, webp, gif (including animated), svg and bmp all work; <b>webm</b> is a video, not an image — use gif for animation.</p>`},
+  {id:'audio', title:'Audio', html:`
+    <p><b>audio</b> (full name <b>audio1</b>) is the side-1 sound: the front of a card or the prompt of a task. <b>audio2</b> is side 2: the back of a card or the answer. When a side with audio is shown, the sound plays <b>once</b> automatically; press <b>P</b> or the 🔊 button to replay. Several audio fields make a playlist with buttons in order. Written as a modifier line under a record:</p>
+    ${codebox(['# Карточки','Hello ; Hi | Привет ; Здравствуйте','audio: audio/Hello_Hi.mp3','audio2: audio/Привет_Здравствуйте.mp3','','![](img/dog.jpg) | Собака','audio2: audio/Собака.mp3',''].join('\n'))}
+    <h3>How sound is found</h3>
+    <p>For every side of a card or task the site searches in this order — the first hit wins:</p>
+    <p>1. <b>audio: / audio1: / audio2: lines</b> — manual, always the main source; the path is matched by folder first, then by file name.<br>2. <b>Numbered file</b> like <code>01_Hello_Hi.mp3</code> — the number finds the card, the text in the name decides which side it belongs to.<br>3. <b>Number-only file</b> <code>01.mp3</code> — the card's shared audio, plays on both sides.<br>4. <b>File by name</b>: <code>Hello_Hi.mp3</code> for the card "Hello ; Hi" (texts up to 6 words).<br>5. <b>Browser speech synthesis</b> — if enabled (see below) and no file exists.</p>
+    <h3>Numbered files: audio with almost no lines in the deck</h3>
+    <p>Records are numbered automatically: <b>cards count from 01 separately, tasks separately</b>, listening tasks of the # Audio section separately. Modifier lines (hint:, tags:, audio:…) do not count — only records. Name a file <code>01_side_text.mp3</code> and it attaches itself:</p>
+    ${codebox(['# Карточки','Hello ; Hi ; Hey ; wassup | Здравствуйте ; Привет ; Хай ; Дарова','','01_Hello_Hi_Hey_wassup.mp3             → the English side (number 01 + text matched)','01_Здравствуйте_Привет_Хай_Дарова.mp3 → the Russian side','01.mp3                                → shared audio of card #01 — plays on both sides',''].join('\n'))}
+    <p>• <b>The number</b> is the digits before the first underscore: 01, 02, 03… (after 99 just 100; <code>1</code> and <code>01</code> are the same).<br>• <b>The text after the number</b> decides the side: matched the English text — it is the English side's audio; matched the Russian text — the Russian side. Cards can be written in any order — <code>English | Русский</code> or <code>Русский | English</code>: files attach to text, not position.<br>• <b>Case, underscores and punctuation do not matter</b>: <code>How_are_you</code> matches "How are you?", <code>hello_hi</code> matches "Hello ; Hi". ";" alternatives take part in the comparison too.<br>• <b>Apostrophes do not get in the way</b>: "I'll be back soon." matches <code>11_Ill_be_back_soon.mp3</code>, "don't" matches <code>…dont…</code> — apostrophes are dropped for the comparison, like all punctuation.<br>• <b>Shortened name</b> — the beginning of the text is enough: <code>01_Hello.mp3</code> works for "Hello ; Hi ; Hey".<br>• Unmatched files and records without a file are listed in detail in the <b>journal</b> — with a hint of which record the file belongs to and how to rename it; a number taken by another file is never silently overridden.<br>• <b>Tasks</b> count separately: <code>01_Привет_как_дела.mp3</code> is task #1's audio. A number-only file attaches to a card, so for tasks keep the text in the name.</p>
+    <h3>Matching by name without a number</h3>
+    <p>Short records (up to 6 words) find their file even without a number: the card "Goodbye ; Bye | Пока ; До свидания" picks up <code>Goodbye_Bye.mp3</code> and <code>Пока_До_свидания.mp3</code> on its own. Long sentences do not need full-text names — use numbering or audio: lines.</p>
+    <h3>The # Audio section — listening tasks</h3>
+    <p>A separate section for "hear and type" tasks. A record starts with <b>audio:</b> or <b>audio2:</b>; after " | " comes the answer text (also with ";" alternatives):</p>
+    ${codebox(['# Аудио','audio: audio/Hello_Hi.mp3 | Привет ; Здравствуйте','audio2: audio/Привет_Здравствуйте.mp3 | Hello ; Hi',''].join('\n'))}
+    <p>The first line: English audio plays — type the Russian translation; the second: Russian audio — type English. The audio:/audio2: key only marks whose voice it is; the task is always shown as 🔊 with an input field. Hint and tags work as usual: modifiers under the record or the 3rd and 4th fields. Listening tasks have a fixed direction and no ⇄ button.</p>
+    <h3>Connecting audio: folder or ZIP</h3>
+    <p>There is no need to upload mp3 files to a repository. Press "Choose folder" and pick the folder with the deck and audio, or load the same content as a .zip. All files are preloaded into the media library: audio: paths are matched by path first, then by file name (the folder prefix does not matter: <code>audio/hello.mp3</code> is also found as <code>hello.mp3</code>); numbered and short names are matched automatically as described above. Cyrillic file names work in a folder and inside a ZIP: the archive encoding is detected automatically (UTF-8 and the Windows cp1251/cp866/koi8-r), names from old Windows archives read correctly. The toast after loading a zip shows the first file names — you see the encoding right away, not by ear. Files that are not connected are marked quietly — the "Audio unavailable: path" toast appears once.</p>
+    <h3>Speech synthesis, volume, mute</h3>
+    <p>When a side has no audio of its own, the <b>built-in browser speech synthesis</b> can read the text — free, no files at all, handy for sentences you do not want to record. The voice language follows the alphabet of the text being read: Cyrillic — a Russian voice; Latin script — the language of that side from the deck header (fill in lang and base when the text is Latin but not English, say French), or English if the header is empty. Toggle it with the 🗣 button — on the home screen in Settings and in a session next to the font size; the state is shared and remembered. Next to it: <b>Volume</b> (a slider, remembered; 70% by default) and the 🔊/🔇 mute button that silences both files and synthesis. The 🔊 button under a card reads the text with synthesis when no file exists; press P to replay the current side.</p>
+    <h3>Making your own audio</h3>
+    <p>Recommended free generator — <b>edge-tts</b> (Microsoft neural voices):</p>
+    ${codebox(['pip install edge-tts','','edge-tts --voice en-US-AriaNeural --text "Good morning, how are you?" --write-media 01_Good_morning_how_are_you.mp3',''].join('\n'))}
+    <p>Alternatives: gTTS (simple Google voices), Piper (offline), Forvo (human recordings of single words), paid services (Azure TTS, ElevenLabs, OpenAI TTS), or a phone voice recorder. Keep files in a folder next to the deck; for local use names can be anything — Latin letters without spaces matter only if you plan to push the files into a repository.</p>`},
+  {id:'loading', title:'Loading decks', html:`
+    <p><b>Built-in</b> decks ship with the site. <b>Links</b> — raw GitHub URLs: the URL field and "Add" button sit in the same "Upload files from your device" panel; the site downloads and caches the file in the browser, so it works offline, and "Refresh" pulls edits. Relative paths (images, audio:) are resolved against the deck's GitHub address — you can push a deck to a repository together with audio and images without editing paths. <b>Device files</b> — three buttons: "Choose files" (.md/.txt decks together with nearby media, or a .zip right away), "Choose folder" (a whole folder — decks and media are found for you), "Load archive" (.zip: decks inside are imported, audio and images are unpacked into memory). All media is preloaded into the shared media library — until the page is reloaded it serves every deck, link-based decks included: deck texts can live on GitHub while audio and images stay on your disk. The library state is visible on the home screen in the "Media" panel under the upload buttons; reconnecting the same folder or archive refreshes its contents, dropping renamed and deleted files; the "Clear" button frees the memory. Deck text is stored in the browser (localStorage). Browser storage is about 5 MB. Move progress between devices with the JSON export/import in Settings.</p>
+    <h3>How device files are matched</h3>
+    <p>${esc(t('uploadHint'))}</p>`},
+  {id:'progress', title:'Progress', html:`
+    <p>Per card the site keeps knew/missed counters, last-seen date and hint count. Session setup offers "Repeat mistakes only". The reset button wipes all progress — export first, it cannot be undone.</p>`},
+  {id:'keys', title:'Keyboard', html:`
+    <div class="tablewrap"><table>
+      <tr><th>Key</th><th>Action</th></tr>
+      <tr><td>Space / Enter</td><td>flip card or reveal answer</td></tr>
+      <tr><td>1 / 2</td><td>knew / missed</td></tr>
+      <tr><td>H</td><td>hint (reveals random letters)</td></tr>
+      <tr><td>P</td><td>replay audio of the current side</td></tr>
+      <tr><td>F</td><td>flip task direction (⇄)</td></tr>
+      <tr><td>Esc</td><td>exit session</td></tr>
+    </table></div>
+    <p>Keys are bound to physical keyboard buttons and work on any keyboard layout: with a Russian layout selected the same keys do the same thing. On phones a card flips by tapping anywhere on it.</p>`},
+  {id:'faq', title:'FAQ', html:`
+    <p><b>Images of a local deck disappeared after reload.</b> Media lasts until the page is reloaded; the text is kept. Press "Choose folder" or "Load archive" again — reconnecting takes a couple of seconds.</p>
+    <p><b>Progress reset after editing a card.</b> Progress is tied to text — add an id field.</p>
+    <p><b>A link is not added.</b> The file must be publicly accessible; open the URL in a browser to verify.</p>
+    <p><b>A task asks in the wrong direction.</b> The direction comes from the deck header: fill in lang (target) and base (native) and "Base → Target" will always show the native language, even if the columns are swapped in the file. In decks without reverse (reverse: false / поворот: запрещен on a card or in the header, or lang = base) the ⇄ button and the F key are locked — the card shows a "Reverse is off" note. Turn on reverse: true in the header to make both directions available.</p>
+    <p><b>Audio does not play by itself.</b> Browsers allow sound only after the first interaction with the page — click or press any key once, then autoplay works on every card. Press P to replay the current side.</p>
+    <p><b>"Audio unavailable: audio/…".</b> This file is not among the connected media and auto-matching found no pair. Press "Choose folder" (the whole folder with the deck and audio) or load a .zip. Or rename your files to the numbered form <code>01_Hello_Hi.mp3</code> — the site will link them itself; the journal lists unmatched files and records without a file in detail. For a link-based deck you do not have to push mp3 files into the repository: connect them locally and they will be picked up.</p>
+    <p><b>Which ZIP works?</b> A regular .zip from any archiver (stored or deflate methods); nested folders are supported. Cyrillic names read correctly: the encoding is detected automatically (UTF-8 and the Windows cp1251/cp866/koi8-r), and the toast after loading shows the first file names. Encrypted archives are not read. .md/.txt decks inside the archive are added automatically; audio and images go to the media library.</p>
+    <p><b>Speech synthesis is silent or uses the wrong language.</b> Check that 🗣 is on (home screen or session) and sound is not muted (🔇). The voice depends on the browser: fresh Chrome and Edge handle English and Russian best. The language comes from the deck header — fill in lang (target) and base (native) if synthesis mixes languages. Synthesis is a fallback: the card's own mp3 always plays instead of it.</p>
+    <p><b>The text contains ";" or " | ".</b> ";" splits alternatives, " | " separates fields. Escape literal characters: <code>\\;</code> and <code>\\|</code> — the line "Раз\\; два | Один" becomes a card with the text "Раз; два".</p>`}
+  ];
+}
+function instructionView(){
+  const secs=instrSections();
+  return `
+  <div class="top">
+    <h1>${esc(t('instrTitle'))}</h1>
+    <div class="right">${langSwitch()}<a class="btn btn-sm" href="#/">${esc(t('toHome'))}</a></div>
+  </div>
+  <div class="instr">
+    <nav>${secs.map(s=>`<a data-act="goto" data-arg="${s.id}">${esc(s.title)}</a>`).join('')}</nav>
+    <div class="content">${secs.map(s=>`<section id="sec-${s.id}"><h2 style="margin-top:0">${esc(s.title)}</h2>${s.html}</section>`).join('')}</div>
+  </div>`;
+}
+
+/* ============================ actions ============================ */
+async function onFilesChosen(fileList){
+  const files=[...fileList];
+  if(pendingReupload){
+    const id=pendingReupload; pendingReupload=null;
+    const f=files.find(x=>/\.(md|markdown|txt)$/i.test(x.name));
+    const m=deckMetas.find(x=>x.id===id);
+    if(f && m){
+      const text=await f.text();
+      const deck=parseDeck(text, f.name);
+      if(!deck.cards.length){ toast(t('parseEmpty')); logErr(t('parseEmpty')+': '+f.name); rerender(); return; }
+      m.text=text; m.name=deck.title; m.savedAt=nowIso(); delete m.error; saveDecks();
+      registerAssets(id, files);
+      const nmedia=registerMediaLib(files);
+      logOk(t('updated')+' — «'+m.name+'»');
+      if(nmedia) logMatchesFor([m]);
+      toast(t('updated'));
+      rerender();
+      return;
+    }
+    // колода для «Обновить» уже удалена (или выбраны только медиа) —
+    // раньше файл молча терялся: идём в обычный импорт ниже
+    if(f && !m) logWarn(t('logReuploadGone'));
+  }
+  let added=0, zips=0; const failed=[]; const addedMetas=[]; const cohorts=new Set(); let nmedia=0;
+  // cohort мультивыбора: те же файлы, выбранные повторно, дают тот же id (fnv по путям)
+  const selId='sel:'+fnv(files.map(f=>f.webkitRelativePath||f.name).sort().join('|'));
+  for(const f of files){
+    try{
+      if(f.name.startsWith('.')) continue;
+      if(isMediaFile(f.name, f.type)) cohorts.add(rootCohortOf(f)||selId);
+      if(/\.zip$/i.test(f.name)){ zips++; await importZip(f); continue; }
+      if(/\.(md|markdown|txt)$/i.test(f.name)){
+        const text=await f.text();
+        const deck=parseDeck(text, f.name);
+        if(!deck.cards.length){ toast(t('parseEmpty')+': '+f.name); logErr(t('parseEmpty')+': '+f.name); continue; }
+        const id=deckIdForLocal(deck.title);
+        const meta=addDeckFromText(text, f.name, 'local', null, rootCohortOf(f)||selId);
+        registerAssets(id, files);
+        if(meta){
+          addedMetas.push(meta);
+          const nc=deck.cards.filter(c=>c.type==='card').length;
+          const nt=deck.cards.filter(c=>c.type==='task').length;
+          logOk(t('added')+' — «'+meta.name+'»: '+nc+' '+t('cardsCount')+', '+nt+' '+t('tasksCount'));
+        }
+        added++;
+      }
+    }catch(e){ failed.push(f.name+' — '+(e && e.message ? e.message : 'ошибка')); logErr(f.name+' — '+(e && e.message ? e.message : 'ошибка')); }
+  }
+  nmedia=registerMediaLib(files);
+  if(!added && !zips){ toast(failed.length?t('invalidFile')+' ('+failed[0]+')':t('invalidFile')); }
+  else if(added){ toast(added+' × '+t('added')+(failed.length?' · ⚠ '+failed.length+' '+(LANG==='ru'?'файлов с ошибкой':'failed')+': '+failed[0]:'')); }
+  // автосвязка логируется после того, как подключено и медиа, и колоды
+  if(nmedia){
+    const targets=new Map();
+    for(const m of addedMetas) targets.set(m.id, m);
+    for(const ch of cohorts) for(const m of deckMetas) if(m.cohort===ch) targets.set(m.id, m);
+    logMatchesFor([...targets.values()]);
+  }
+  rerender(); // медиа-библиотека видна сразу, даже если разбор колод не удался
+}
+function registerAssets(deckId, files){
+  const map={};
+  for(const f of files){
+    if(f.name.startsWith('.')) continue;
+    if(/\.(md|markdown|txt|json)$/i.test(f.name)) continue;
+    if(!/^(image|audio)\//.test(f.type||'')) continue;
+    const url=URL.createObjectURL(f);
+    if(f.webkitRelativePath){
+      const rp=f.webkitRelativePath.replace(/^\.\//,'');
+      map[rp]=url;
+      const noRoot=rp.indexOf('/')>=0 ? rp.slice(rp.indexOf('/')+1) : '';
+      if(noRoot) map[noRoot]=url;
+    }
+    map[f.name]=url;
+    map[f.name.toLowerCase()]=url;
+  }
+  if(Object.keys(map).length) localAssets[deckId]=map;
+}
+
+/* ============================ zip ============================ */
+// Чтение ZIP без внешних библиотек. Имена записей берутся из центрального каталога,
+// записи «без сжатия» (метод 0) берутся как есть, deflate (метод 8) распаковывается
+// штатным DecompressionStream('deflate-raw'). Зашифрованные записи и ZIP64 не поддерживаются.
+// доля «настоящей» кириллицы в строке; бонус за строчные — русские имена файлов почти всегда со строчными
+function cyrScore(s){
+  let cyr=0, low=0;
+  for(const ch of String(s)){
+    const c=ch.codePointAt(0);
+    if((c>=0x0410&&c<=0x044F)||c===0x0451||c===0x0401){ cyr++; if(c>=0x0430||c===0x0451) low++; }
+  }
+  return cyr/Math.max(1,String(s).length) + 0.15*(low/Math.max(1,String(s).length));
+}
+function decodeZipName(bytes, flags){
+  if(flags & 0x0800) return new TextDecoder('utf-8').decode(bytes); // имя помечено как UTF-8
+  const cands=[];
+  const tryDec=enc=>{ try{ return new TextDecoder(enc,{fatal:true}).decode(bytes); }catch(e){ return null; } };
+  const u8=tryDec('utf-8'); if(u8!=null) cands.push(u8);
+  // без UTF-8-метки архиваторы под Windows пишут имена в системной однобайтовой кодировке;
+  // байты одной кодировки «успешно» читаются другой, поэтому кандидатов оцениваем по кириллице
+  for(const enc of ['windows-1251','ibm866','koi8-r']){
+    const s=tryDec(enc); if(s!=null) cands.push(s);
+  }
+  if(!cands.length) return new TextDecoder('utf-8').decode(bytes);
+  let best=cands[0], bestScore=-1;
+  for(const s of cands){ const sc=cyrScore(s); if(sc>bestScore){ bestScore=sc; best=s; } }
+  return best;
+}
+async function unzipEntry(u8, dv, en){
+  if(dv.getUint32(en.off,true)!==0x04034b50) throw new Error('bad local header');
+  const nLen=dv.getUint16(en.off+26,true), eLen=dv.getUint16(en.off+28,true);
+  const start=en.off+30+nLen+eLen;
+  if(start+en.size>u8.length) throw new Error('truncated');
+  const comp=u8.subarray(start, start+en.size);
+  if(en.method===0) return new Blob([comp], {type:mimeFor(en.name)});
+  const ds=new DecompressionStream('deflate-raw');
+  const blob=await new Response(new Blob([comp]).stream().pipeThrough(ds)).blob();
+  return blob.slice(0, blob.size, mimeFor(en.name) || blob.type);
+}
+async function readZip(file){
+  const buf=await file.arrayBuffer();
+  const u8=new Uint8Array(buf), dv=new DataView(buf);
+  let eocd=-1;
+  const from=Math.max(0, u8.length-65557);
+  for(let p=u8.length-22; p>=from; p--){
+    if(dv.getUint32(p,true)===0x06054b50){ eocd=p; break; }
+  }
+  if(eocd<0) throw new Error('not a zip');
+  const count=dv.getUint16(eocd+10,true);
+  let off=dv.getUint32(eocd+16,true);
+  if(off===0xFFFFFFFF || off+46>u8.length) throw new Error('zip64 unsupported');
+  const entries=[];
+  for(let n=0; n<count; n++){
+    if(off+46>u8.length || dv.getUint32(off,true)!==0x02014b50) break;
+    const flags=dv.getUint16(off+8,true);
+    const method=dv.getUint16(off+10,true);
+    const size=dv.getUint32(off+20,true);
+    const nameLen=dv.getUint16(off+28,true), extraLen=dv.getUint16(off+30,true), cmtLen=dv.getUint16(off+32,true);
+    const lho=dv.getUint32(off+42,true);
+    const name=decodeZipName(u8.subarray(off+46, off+46+nameLen), flags);
+    if(!(flags&1) && size!==0xFFFFFFFF && lho!==0xFFFFFFFF && !name.endsWith('/')) entries.push({name, method, size, off:lho});
+    off+=46+nameLen+extraLen+cmtLen;
+  }
+  const out=[];
+  for(const en of entries){
+    if(en.off+30>u8.length || dv.getUint32(en.off,true)!==0x04034b50) continue;
+    try{ out.push({name:en.name, blob:await unzipEntry(u8, dv, en)}); }catch(e){ if(e && e.message==='zip64 unsupported') throw e; }
+  }
+  return out;
+}
+let zipBusy=false;
+async function importZip(file){
+  if(zipBusy) return;
+  zipBusy=true;
+  toast(t('zipImporting'));
+  try{
+    if(!('DecompressionStream' in window)){ toast(t('zipUnsupported')); logErr(t('zipUnsupported')); return; }
+    const entries=await readZip(file);
+    const zipCohort=(file.name||'').replace(/\.zip$/i,''); // файлы архива — cohort имени zip
+    const media=[], decks=[];
+    for(const en of entries){
+      const name=en.name.replace(/^\.?\//,'');
+      const base=name.split('/').pop()||name;
+      if(name.startsWith('__MACOSX/') || base.startsWith('._')) continue; // мусор macOS-архивов
+      if(/\.(md|markdown|txt)$/i.test(base)) decks.push({name:base, text:await en.blob.text()});
+      else if(isMediaFile(base, en.blob.type)) media.push({name, blob:en.blob});
+    }
+    for(const m of media) addMediaItem(m.name, m.blob, zipCohort);
+    recountMedia();
+    mediaRev++;
+    let added=0; const failed=[]; const addedMetas=[];
+    for(const d of decks){
+      try{
+        const deck=parseDeck(d.text, d.name);
+        if(!deck.cards.length) continue;
+        const meta=addDeckFromText(d.text, d.name, 'local', null, zipCohort);
+        if(meta) addedMetas.push(meta);
+        added++;
+      }catch(e){ failed.push(d.name+' — '+(e && e.message ? e.message : 'ошибка')); }
+    }
+    if(!media.length && !added){
+      const msg=failed.length?t('zipFail')+': '+failed.join('; '):t('zipEmpty');
+      toast(msg); logErr(msg);
+      return;
+    }
+    const parts=[];
+    const [za,zi]=mediaCount(media); // числа тоста — про этот архив
+    if(media.length) parts.push(media.length+' '+(LANG==='ru'?'медиа':'media')+' ('+za+' '+t('mediaAudio')+' · '+zi+' '+imgWord(zi)+')');
+    if(added) parts.push(added+' '+(LANG==='ru'?plural(added,'колода','колоды','колод'):(added===1?'deck':'decks')));
+    // пара первых имён — чтобы кодировку видно было сразу, а не по звуку
+    const sample=media.slice(0,2).map(m=>m.name.split('/').pop()).join(', ');
+    if(sample) parts.push('«'+sample+(media.length>2?'…':'')+'»');
+    if(failed.length) parts.push('⚠ '+failed.length+' '+(LANG==='ru'?'колод не прочитано':'decks failed')+': '+failed[0]);
+    toast(t('zipImported')+': '+parts.join(', '), 5000);
+    logOk(t('zipImported')+': '+parts.join(', '));
+    if(media.length){
+      const targets=new Map();
+      for(const m of addedMetas) targets.set(m.id, m);
+      for(const m of deckMetas) if(m.cohort===zipCohort) targets.set(m.id, m);
+      logMatchesFor([...targets.values()]);
+    }
+  }catch(e){
+    const msg=t('zipFail')+(e && e.message ? ': '+e.message : '');
+    toast(msg);
+    logErr(msg);
+  }finally{
+    zipBusy=false;
+    rerender(); // медиа-библиотека обновляется на экране даже при частичной ошибке
+  }
+}
+const act={
+  'set-lang':arg=>{ settings.lang=arg; LANG=arg; saveSettings(); rerender(); },
+  'open-setup':arg=>{
+    const ids=arg==='all'?deckMetas.map(m=>m.id):[arg];
+    // режим по умолчанию — карты; направление — первое доступное у выбранных
+    // колод (если направлений нет — «mixed»: без фильтра)
+    const caps=ids.map(id=>deckMetas.find(m=>m.id===id)).filter(Boolean)
+      .reduce((a,m)=>{
+        const d=getDeck(m); if(!d) return a;
+        const c=deckDirCaps(d,'cards');
+        a.l1l2=a.l1l2||c.l1l2; a.l2l1=a.l2l1||c.l2l1;
+        return a;
+      }, {l1l2:false, l2l1:false});
+    let direction='l1l2';
+    if(!caps.l1l2 && !caps.l2l1) direction='mixed';
+    else if(!caps.l1l2) direction='l2l1';
+    pendingSetup={ ids, mode:'cards', direction, onlyMistakes:false, tags:[], size:'' };
+    rerender();
+  },
+  'setup-set':(arg,el)=>{
+    if(el.dataset.kind==='mode') pendingSetup.mode=arg;
+    else pendingSetup.direction=arg;
+    rerender();
+  },
+  'tag':arg=>{
+    const i=pendingSetup.tags.indexOf(arg);
+    if(i>=0) pendingSetup.tags.splice(i,1); else pendingSetup.tags.push(arg);
+    rerender();
+  },
+  'onlymistakes':()=>{ pendingSetup.onlyMistakes=!pendingSetup.onlyMistakes; rerender(); },
+  'setup-start':()=>{
+    const sizeEl=document.getElementById('size-input');
+    const size=sizeEl&&sizeEl.value?Math.max(1,parseInt(sizeEl.value,10)||0):0;
+    const cfg={ deckIds:pendingSetup.ids, mode:pendingSetup.mode, direction:pendingSetup.direction,
+                onlyMistakes:pendingSetup.onlyMistakes, tags:pendingSetup.tags.slice(), size };
+    pendingSetup=null;
+    startSession(cfg);
+    rerender();
+  },
+  'setup-cancel':()=>{ pendingSetup=null; rerender(); },
+  'overlay-close':(arg,el,e)=>{ if(e.target===el){ pendingSetup=null; rerender(); } },
+  'add-url':()=>{
+    const inp=document.getElementById('url-input');
+    const url=inp?inp.value.trim():'';
+    if(!url){ toast(t('noUrl')); return; }
+    addUrl(url);
+  },
+  'upload':()=>{ document.getElementById('file-input').click(); },
+  'upload-folder':()=>{ const el=document.getElementById('folder-input'); if(el) el.click(); },
+  'upload-zip':()=>{ const el=document.getElementById('zip-input'); if(el) el.click(); },
+  'clear-media':()=>{ clearMediaLib(); toast(t('mediaCleared')); rerender(); },
+  'toggle-mute':()=>{ settings.muted=!settings.muted; if(settings.muted) stopSpeech(); saveSettings(); rerender(); },
+  'toggle-tts':()=>{ settings.tts=!settings.tts; if(!settings.tts) stopSpeech(); saveSettings(); rerender(); },
+  'speak':arg=>{ if(!S||S.done) return; speakSide(cur(), arg==='2'?'2':'1'); },
+  'reupload':arg=>{ pendingReupload=arg; document.getElementById('file-input').click(); },
+  'refresh':arg=>{ fetchDeckText(arg, false); },
+  'delete':arg=>{
+    if(!confirm(t('confirmDelete'))) return;
+    const gone=deckMetas.find(d=>d.id===arg);
+    deckMetas=deckMetas.filter(d=>d.id!==arg);
+    pendingReupload=null; // «Обновить» этой колоды больше не ждём — иначе он молча съедал следующую загрузку
+    if(gone) logOk(t('logDeleted')+': «'+gone.name+'»');
+    saveDecks(); rerender();
+  },
+  'restore-demo':()=>{
+    if(!deckMetas.some(d=>d.id==='builtin:demo-en')){
+      deckMetas.unshift(demoDeckMeta());
+      saveDecks();
+    }
+    rerender();
+  },
+  'export':()=>{
+    const blob=new Blob([JSON.stringify({app:'kartochki',version:1,exported:nowIso(),progress},null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='kartochki-progress.json'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),4000);
+  },
+  'import':()=>{ document.getElementById('import-input').click(); },
+  'reset-progress':()=>{
+    if(!confirm(t('confirmReset'))) return;
+    progress={}; saveProgress(); toast(t('progressCleared')); logOk(t('progressCleared')); rerender();
+  },
+  'clear-log':()=>{
+    logEntries=[];
+    try{ localStorage.removeItem('kartochki.log'); }catch(e){}
+    toast(t('logCleared'));
+    rerender();
+  },
+  'flip-card':()=>{ if(!S||S.done)return; const ex=cur(); if(ex.card.type!=='card')return; S.flipped=!S.flipped; S.flipAnim=S.flipped?'fwd':'bwd'; playFaceAudio(ex, currentFaceSide(ex)); rerender(); },
+  'reveal':()=>actReveal(),
+  'hint':()=>actHint(),
+  'flip-dir':()=>{ if(S&&!S.done) flipDir(); },
+  'grade':arg=>{ if(!S||S.done)return; const ex=cur(); const can=ex.card.type==='card'?S.flipped:S.revealed; if(!can)return; grade(arg==='ok'); },
+  'play':arg=>{
+    if(!S||S.done)return;
+    const ex=cur();
+    const [side, idx]=String(arg).split(':');
+    const list=audioListFor(ex, side==='2'?'2':'1');
+    const i=parseInt(idx,10)||0;
+    if(list[i]) playAudioUrl(list[i], ex.deck.metaId);
+  },
+  'exit':()=>{ S=null; pendingSetup=null; stopSpeech(); if(location.hash==='#/session'||location.hash==='#/') rerender(); else location.hash='#/'; rerender(); },
+  'repeat-mistakes':()=>{
+    const cfg=Object.assign({}, S.config, {onlyMistakes:true});
+    const hadMistakes=S.bad>0;
+    S=null;
+    if(hadMistakes){ startSession(cfg); if(!S){ location.hash='#/'; rerender(); } }
+    else { toast(t('noMistakes')); location.hash='#/'; rerender(); }
+  },
+  'goto':arg=>{
+    const el=document.getElementById('sec-'+arg);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  },
+  'copy':(arg,el)=>{
+    const box=el.closest('.codebox');
+    const pre=box?box.querySelector('pre'):null;
+    if(pre) copyText(pre.textContent);
+  }
+};
+let pendingReupload=null;
+async function addUrl(url){
+  const existing=deckMetas.find(d=>d.id==='url:'+url);
+  if(existing){ fetchDeckText(existing.id, false); return; }
+  toast('…');
+  try{
+    const res=await fetch(url, {cache:'no-cache'});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    const text=await res.text();
+    const meta=addDeckFromText(text, url, 'url', url);
+    if(meta){ toast(t('added')); logOk(t('added')+' — «'+meta.name+'»'); rerender(); }
+  }catch(e){
+    toast(t('fetchFail')+': '+e.message);
+    logErr(t('fetchFail')+' — '+url+': '+e.message);
+  }
+}
+
+/* ============================ router & boot ============================ */
+let rerenderQueued=false;
+function rerender(){
+  if(rerenderQueued) return;
+  rerenderQueued=true;
+  requestAnimationFrame(()=>{
+    rerenderQueued=false;
+    renderApp();
+  });
+}
+function renderApp(){
+  const app=document.getElementById('app');
+  const h=location.hash||'#/';
+  let html;
+  if(h.indexOf('#/session')===0 && S) html=sessionView();
+  else if(h.indexOf('#/instruction')===0) html=instructionView();
+  else html=homeView();
+  if(pendingSetup) html+=setupModalHtml();
+  app.innerHTML=html;
+  bindDynamic();
+}
+function bindDynamic(){
+  const inp=document.getElementById('typed');
+  if(inp){
+    S.typed=inp.value;
+    inp.addEventListener('input',()=>{ S.typed=inp.value; });
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); actReveal(); } });
+    inp.focus();
+    const L=inp.value.length;
+    try{ inp.setSelectionRange(L,L); }catch(e){}
+  }
+  const fs=document.getElementById('fontScale');
+  if(fs) fs.addEventListener('change',()=>{ settings.fontScale=parseFloat(fs.value)||1; saveSettings(); applyFontScale(); });
+  const isel=document.getElementById('imgSize');
+  if(isel) isel.addEventListener('change',()=>{ settings.imgSize=isel.value; saveSettings(); applyImgSize(); });
+  const vol=document.getElementById('vol');
+  if(vol){
+    vol.addEventListener('input',()=>{ settings.volume=parseFloat(vol.value)||0; if(settings.volume>0) settings.muted=false; });
+    vol.addEventListener('change',()=>{ saveSettings(); });
+  }
+  const fi=document.getElementById('file-input');
+  if(fi) fi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const fo=document.getElementById('folder-input');
+  if(fo) fo.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const zi=document.getElementById('zip-input');
+  if(zi) zi.addEventListener('change',e=>{ if(e.target.files.length) onFilesChosen(e.target.files); e.target.value=''; });
+  const fb=document.getElementById('folder-btn');
+  if(fb && !('webkitdirectory' in document.createElement('input'))) fb.classList.add('hidden');
+  const ii=document.getElementById('import-input');
+  if(ii) ii.addEventListener('change',async e=>{
+    const f=e.target.files[0]; e.target.value='';
+    if(!f) return;
+    try{
+      const data=JSON.parse(await f.text());
+      if(!data || typeof data.progress!=='object') throw new Error('bad');
+      let n=0;
+      for(const k of Object.keys(data.progress)){
+        const v=data.progress[k];
+        if(v && typeof v==='object'){ progress[k]={k:v.k||0,m:v.m||0,h:v.h||0,ls:v.ls||''}; n++; }
+      }
+      saveProgress();
+      toast(t('imported')+' ('+n+')');
+      logOk(t('imported')+' ('+n+')');
+      rerender();
+    }catch(err){ toast(t('invalidFile')); logErr(t('invalidFile')); }
+  });
+  const ui=document.getElementById('url-input');
+  if(ui) ui.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); act['add-url'](); } });
+  bindToTop();
+}
+document.addEventListener('click', e=>{
+  const el=e.target.closest('[data-act]');
+  if(!el) return;
+  const fn=act[el.dataset.act];
+  if(fn) fn(el.dataset.arg, el, e);
+});
+// тихая пометка вместо консольных 404: картинка, которой нет в библиотеке, заменяется подписью
+document.addEventListener('error', e=>{
+  const el=e.target;
+  if(el && el.tagName==='IMG'){
+    const note=document.createElement('span');
+    note.className='muted';
+    note.style.fontSize='.8rem';
+    note.textContent='🖼 '+t('mediaMissing')+(el.getAttribute('alt')?': '+el.getAttribute('alt'):'');
+    el.replaceWith(note);
+  }
+}, true);
+document.addEventListener('keydown', e=>{
+  if(!(location.hash||'').startsWith('#/session') || !S || S.done) return;
+  if(pendingSetup) return;
+  const tag=(e.target.tagName||'').toUpperCase();
+  const inInput=(tag==='INPUT'||tag==='TEXTAREA');
+  if(e.code==='Escape'){ act['exit'](); return; }
+  if(inInput){
+    if(e.code==='Enter'){ e.preventDefault(); actReveal(); }
+    return;
+  }
+  const ex=cur();
+  switch(e.code){
+    case 'Space':
+    case 'Enter':
+      e.preventDefault();
+      if(ex.card.type==='card') act['flip-card'](); else actReveal();
+      break;
+    case 'Digit1': case 'Numpad1': act['grade']('ok'); break;
+    case 'Digit2': case 'Numpad2': act['grade']('bad'); break;
+    case 'KeyH': actHint(); break;
+    case 'KeyP': playFaceAudio(cur(), currentFaceSide(cur())); break;
+    case 'KeyF': flipDir(); break;
+  }
+});
+window.addEventListener('hashchange', ()=>{ if(location.hash!=='#/session'){ S=null; stopSpeech(); } renderApp(); });
+// плавающая кнопка «наверх»: появляется после прокрутки, работает на любой странице
+function bindToTop(){
+  const tt=document.getElementById('to-top');
+  if(!tt || tt.dataset.bound) return;
+  tt.dataset.bound='1';
+  tt.addEventListener('click',()=>{ try{ window.scrollTo({top:0,behavior:'smooth'}); }catch(e){ window.scrollTo(0,0); } });
+  const upd=()=>{ tt.classList.toggle('show',(window.scrollY||document.documentElement.scrollTop||0)>300); };
+  window.addEventListener('scroll',upd,{passive:true});
+  window.addEventListener('hashchange',()=>setTimeout(upd,50));
+  upd();
+}
+function applyFontScale(){
+  document.documentElement.style.fontSize=Math.round(16*(settings.fontScale||1)*100)/100+'px';
+}
+function boot(){
+  applyFontScale();
+  applyImgSize();
+  seedBuiltins();
+  initVoices(); // голоса синтеза загружаются заранее — иначе первый speak идёт системным голосом
+  renderApp();
+}
+window.LT={ parseDeck, deckMetas:()=>deckMetas, progress:()=>progress, addDeckFromText, startSession, session:()=>S,
+            onFilesChosen, mediaLib:()=>mediaLib, localAssets:()=>localAssets, resolverFor, audioCandidates,
+            matchResultFor, matchedAudioFor, parseAudioStem, normJoin, textPrefixMatch, matchTextFor };
+boot();
+</script>
+
+</body>
+</html>
